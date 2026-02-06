@@ -1,6 +1,7 @@
 #include <easy2d/spatial/quadtree.h>
 #include <easy2d/scene/node.h>
 #include <algorithm>
+#include <functional>
 
 namespace easy2d {
 
@@ -167,19 +168,41 @@ std::vector<std::pair<Node*, Node*>> QuadTree::queryCollisions() const {
 void QuadTree::collectCollisions(const QuadTreeNode* node, std::vector<std::pair<Node*, Node*>>& collisions) const {
     if (!node) return;
 
-    for (size_t i = 0; i < node->objects.size(); ++i) {
-        for (size_t j = i + 1; j < node->objects.size(); ++j) {
-            if (node->objects[i].second.intersects(node->objects[j].second)) {
-                collisions.emplace_back(node->objects[i].first, node->objects[j].first);
+    std::vector<std::pair<Node*, Rect>> ancestors;
+    ancestors.reserve(objectCount_);
+
+    std::function<void(const QuadTreeNode*)> visit = [&](const QuadTreeNode* current) {
+        if (!current) return;
+
+        for (const auto& [obj, bounds] : current->objects) {
+            for (const auto& [ancestorObj, ancestorBounds] : ancestors) {
+                if (bounds.intersects(ancestorBounds)) {
+                    collisions.emplace_back(ancestorObj, obj);
+                }
             }
         }
-    }
 
-    if (node->children[0]) {
-        for (const auto& child : node->children) {
-            collectCollisions(child.get(), collisions);
+        for (size_t i = 0; i < current->objects.size(); ++i) {
+            for (size_t j = i + 1; j < current->objects.size(); ++j) {
+                if (current->objects[i].second.intersects(current->objects[j].second)) {
+                    collisions.emplace_back(current->objects[i].first, current->objects[j].first);
+                }
+            }
         }
-    }
+
+        size_t oldSize = ancestors.size();
+        ancestors.insert(ancestors.end(), current->objects.begin(), current->objects.end());
+
+        if (current->children[0]) {
+            for (const auto& child : current->children) {
+                visit(child.get());
+            }
+        }
+
+        ancestors.resize(oldSize);
+    };
+
+    visit(node);
 }
 
 void QuadTree::clear() {

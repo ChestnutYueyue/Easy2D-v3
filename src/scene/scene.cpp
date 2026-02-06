@@ -79,12 +79,12 @@ void Scene::updateNodeInSpatialIndex(Node* node, const Rect& oldBounds, const Re
     }
     
     // 如果旧边界有效，先移除
-    if (oldBounds.size.width > 0 || oldBounds.size.height > 0) {
+    if (!oldBounds.empty()) {
         spatialManager_.remove(node);
     }
     
     // 如果新边界有效，插入
-    if (newBounds.size.width > 0 || newBounds.size.height > 0) {
+    if (!newBounds.empty()) {
         spatialManager_.insert(node, newBounds);
     }
 }

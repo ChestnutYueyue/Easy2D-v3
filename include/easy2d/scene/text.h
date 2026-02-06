@@ -62,6 +62,8 @@ public:
     static Ptr<Text> create(const String& text);
     static Ptr<Text> create(const String& text, Ptr<FontAtlas> font);
 
+    Rect getBoundingBox() const override;
+
 protected:
     void onDraw(RenderBackend& renderer) override;
     void generateRenderCommand(std::vector<RenderCommand>& commands, int zOrder) override;

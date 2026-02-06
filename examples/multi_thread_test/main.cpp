@@ -1,6 +1,5 @@
 #include <easy2d/easy2d.h>
 #include <easy2d/utils/logger.h>
-#include <cmath>
 #include <sstream>
 
 using namespace easy2d;

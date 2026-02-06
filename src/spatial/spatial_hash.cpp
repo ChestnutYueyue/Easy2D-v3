@@ -1,5 +1,6 @@
 #include <easy2d/spatial/spatial_hash.h>
 #include <easy2d/scene/node.h>
+#include <cstdint>
 
 namespace easy2d {
 
@@ -120,6 +121,19 @@ std::vector<Node*> SpatialHash::query(const Vec2& point) const {
 
 std::vector<std::pair<Node*, Node*>> SpatialHash::queryCollisions() const {
     std::vector<std::pair<Node*, Node*>> collisions;
+    struct PairHash {
+        size_t operator()(const std::pair<Node*, Node*>& p) const noexcept {
+            auto a = reinterpret_cast<std::uintptr_t>(p.first);
+            auto b = reinterpret_cast<std::uintptr_t>(p.second);
+            return std::hash<std::uintptr_t>{}(a) ^ (std::hash<std::uintptr_t>{}(b) << 1);
+        }
+    };
+    auto makeOrdered = [](Node* a, Node* b) -> std::pair<Node*, Node*> {
+        return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
+    };
+
+    std::unordered_set<std::pair<Node*, Node*>, PairHash> seen;
+    seen.reserve(objectCount_ * 2);
     
     for (const auto& [cell, objects] : grid_) {
         std::vector<Node*> cellObjects(objects.begin(), objects.end());
@@ -133,7 +147,10 @@ std::vector<std::pair<Node*, Node*>> SpatialHash::queryCollisions() const {
                 if (bounds2 == objectBounds_.end()) continue;
                 
                 if (bounds1->second.intersects(bounds2->second)) {
-                    collisions.emplace_back(cellObjects[i], cellObjects[j]);
+                    auto key = makeOrdered(cellObjects[i], cellObjects[j]);
+                    if (seen.insert(key).second) {
+                        collisions.emplace_back(key.first, key.second);
+                    }
                 }
             }
         }

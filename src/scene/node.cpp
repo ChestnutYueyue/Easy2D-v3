@@ -253,11 +253,8 @@ void Node::onAttachToScene(Scene* scene) {
     
     // 添加到场景的空间索引
     if (spatialIndexed_ && scene_) {
-        lastSpatialBounds_ = getBoundingBox();
-        if (lastSpatialBounds_.size.width > 0 || lastSpatialBounds_.size.height > 0) {
-            // 这里需要场景提供插入方法，暂时通过 updateSpatialIndex 间接处理
-            updateSpatialIndex();
-        }
+        lastSpatialBounds_ = Rect();
+        updateSpatialIndex();
     }
     
     for (auto& child : children_) {
@@ -267,8 +264,7 @@ void Node::onAttachToScene(Scene* scene) {
 
 void Node::onDetachFromScene() {
     // 从场景的空间索引移除
-    if (spatialIndexed_ && scene_ && 
-        (lastSpatialBounds_.size.width > 0 || lastSpatialBounds_.size.height > 0)) {
+    if (spatialIndexed_ && scene_ && !lastSpatialBounds_.empty()) {
         scene_->removeNodeFromSpatialIndex(this);
         lastSpatialBounds_ = Rect();
     }

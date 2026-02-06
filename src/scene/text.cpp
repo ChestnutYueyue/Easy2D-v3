@@ -13,11 +13,13 @@ Text::Text(const String& text) : text_(text) {
 void Text::setText(const String& text) {
     text_ = text;
     sizeDirty_ = true;
+    updateSpatialIndex();
 }
 
 void Text::setFont(Ptr<FontAtlas> font) {
     font_ = font;
     sizeDirty_ = true;
+    updateSpatialIndex();
 }
 
 void Text::setTextColor(const Color& color) {
@@ -27,10 +29,12 @@ void Text::setTextColor(const Color& color) {
 void Text::setFontSize(int size) {
     fontSize_ = size;
     sizeDirty_ = true;
+    updateSpatialIndex();
 }
 
 void Text::setAlignment(Alignment align) {
     alignment_ = align;
+    updateSpatialIndex();
 }
 
 Vec2 Text::getTextSize() const {
@@ -66,6 +70,33 @@ Ptr<Text> Text::create(const String& text, Ptr<FontAtlas> font) {
     auto t = makePtr<Text>(text);
     t->setFont(font);
     return t;
+}
+
+Rect Text::getBoundingBox() const {
+    if (!font_ || text_.empty()) {
+        return Rect();
+    }
+
+    updateCache();
+    Vec2 size = cachedSize_;
+    if (size.x <= 0.0f || size.y <= 0.0f) {
+        return Rect();
+    }
+
+    Vec2 pos = getPosition();
+    auto anchor = getAnchor();
+
+    if (alignment_ != Alignment::Left) {
+        if (alignment_ == Alignment::Center) {
+            pos.x -= size.x * 0.5f;
+        } else if (alignment_ == Alignment::Right) {
+            pos.x -= size.x;
+        }
+    }
+
+    pos.x -= anchor.x * size.x;
+    pos.y -= anchor.y * size.y;
+    return Rect(pos.x, pos.y, size.x, size.y);
 }
 
 void Text::onDraw(RenderBackend& renderer) {

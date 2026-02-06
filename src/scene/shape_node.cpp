@@ -1,6 +1,9 @@
 #include <easy2d/scene/shape_node.h>
 #include <easy2d/graphics/render_backend.h>
 #include <easy2d/graphics/render_command.h>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace easy2d {
 
@@ -108,14 +111,54 @@ Ptr<ShapeNode> ShapeNode::createFilledPolygon(const std::vector<Vec2>& points,
 
 void ShapeNode::setPoints(const std::vector<Vec2>& points) {
     points_ = points;
+    updateSpatialIndex();
 }
 
 void ShapeNode::addPoint(const Vec2& point) {
     points_.push_back(point);
+    updateSpatialIndex();
 }
 
 void ShapeNode::clearPoints() {
     points_.clear();
+    updateSpatialIndex();
+}
+
+Rect ShapeNode::getBoundingBox() const {
+    if (points_.empty()) {
+        return Rect();
+    }
+
+    Vec2 offset = getPosition();
+
+    if (shapeType_ == ShapeType::Circle && points_.size() >= 2) {
+        float radius = std::abs(points_[1].x);
+        Vec2 center = points_[0] + offset;
+        return Rect(center.x - radius, center.y - radius, radius * 2.0f, radius * 2.0f);
+    }
+
+    float minX = std::numeric_limits<float>::infinity();
+    float minY = std::numeric_limits<float>::infinity();
+    float maxX = -std::numeric_limits<float>::infinity();
+    float maxY = -std::numeric_limits<float>::infinity();
+
+    for (const auto& p : points_) {
+        Vec2 world = p + offset;
+        minX = std::min(minX, world.x);
+        minY = std::min(minY, world.y);
+        maxX = std::max(maxX, world.x);
+        maxY = std::max(maxY, world.y);
+    }
+
+    float inflate = 0.0f;
+    if (!filled_ && (shapeType_ == ShapeType::Line || shapeType_ == ShapeType::Rect || shapeType_ == ShapeType::Triangle || shapeType_ == ShapeType::Polygon || shapeType_ == ShapeType::Point)) {
+        inflate = std::max(0.0f, lineWidth_ * 0.5f);
+    }
+    if (shapeType_ == ShapeType::Point) {
+        inflate = std::max(inflate, lineWidth_ * 0.5f);
+    }
+
+    return Rect(minX - inflate, minY - inflate, (maxX - minX) + inflate * 2.0f, (maxY - minY) + inflate * 2.0f);
 }
 
 void ShapeNode::onDraw(RenderBackend& renderer) {

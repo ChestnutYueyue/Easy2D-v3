@@ -2,6 +2,8 @@
 #include <easy2d/graphics/render_backend.h>
 #include <easy2d/graphics/texture.h>
 #include <easy2d/graphics/render_command.h>
+#include <algorithm>
+#include <cmath>
 
 namespace easy2d {
 
@@ -16,10 +18,12 @@ void Sprite::setTexture(Ptr<Texture> texture) {
     if (texture_) {
         textureRect_ = Rect(0, 0, static_cast<float>(texture_->getWidth()), static_cast<float>(texture_->getHeight()));
     }
+    updateSpatialIndex();
 }
 
 void Sprite::setTextureRect(const Rect& rect) {
     textureRect_ = rect;
+    updateSpatialIndex();
 }
 
 void Sprite::setColor(const Color& color) {
@@ -46,6 +50,30 @@ Ptr<Sprite> Sprite::create(Ptr<Texture> texture, const Rect& rect) {
     auto sprite = makePtr<Sprite>(texture);
     sprite->setTextureRect(rect);
     return sprite;
+}
+
+Rect Sprite::getBoundingBox() const {
+    if (!texture_ || !texture_->isValid()) {
+        return Rect();
+    }
+
+    float width = textureRect_.width();
+    float height = textureRect_.height();
+
+    auto pos = getPosition();
+    auto anchor = getAnchor();
+    auto scale = getScale();
+
+    float w = width * scale.x;
+    float h = height * scale.y;
+    float x0 = pos.x - width * anchor.x * scale.x;
+    float y0 = pos.y - height * anchor.y * scale.y;
+    float x1 = x0 + w;
+    float y1 = y0 + h;
+
+    float l = std::min(x0, x1);
+    float t = std::min(y0, y1);
+    return Rect(l, t, std::abs(w), std::abs(h));
 }
 
 void Sprite::onDraw(RenderBackend& renderer) {

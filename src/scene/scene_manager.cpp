@@ -23,6 +23,7 @@ void SceneManager::runWithScene(Ptr<Scene> scene) {
     }
     
     scene->onEnter();
+    scene->onAttachToScene(scene.get());
     sceneStack_.push(scene);
 }
 
@@ -44,6 +45,7 @@ void SceneManager::replaceScene(Ptr<Scene> scene) {
     
     // Push new scene
     scene->onEnter();
+    scene->onAttachToScene(scene.get());
     sceneStack_.push(scene);
 }
 
@@ -98,6 +100,7 @@ void SceneManager::pushScene(Ptr<Scene> scene) {
     
     // Push new scene
     scene->onEnter();
+    scene->onAttachToScene(scene.get());
     sceneStack_.push(scene);
 }
 
@@ -382,6 +385,7 @@ void SceneManager::finishTransition() {
     
     if (incomingScene_) {
         incomingScene_->onEnter();
+        incomingScene_->onAttachToScene(incomingScene_.get());
         sceneStack_.push(incomingScene_);
     }
     

@@ -168,3 +168,13 @@ target("multi_thread_test")
     add_deps("easy2d")
     set_targetdir("$(builddir)/bin")
 target_end()
+
+-- ==============================================
+-- 6. 碰撞检测验证示例
+-- ==============================================
+target("collision_test")
+    set_kind("binary")
+    add_files("examples/collision_test/**.cpp")
+    add_deps("easy2d")
+    set_targetdir("$(builddir)/bin")
+target_end()
