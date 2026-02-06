@@ -5,6 +5,7 @@
 #include <easy2d/utils/logger.h>
 #include <algorithm>
 #include <filesystem>
+#include <cstring>
 
 namespace easy2d {
 
@@ -106,6 +107,61 @@ Ptr<Texture> ResourceManager::loadTexture(const std::string& filepath) {
         E2D_LOG_ERROR("ResourceManager: exception loading texture: {}", filepath);
         return nullptr;
     }
+}
+
+Ptr<Texture> ResourceManager::loadTextureWithAlphaMask(const std::string& filepath) {
+    // 先加载纹理
+    auto texture = loadTexture(filepath);
+    if (!texture) {
+        return nullptr;
+    }
+    
+    // 生成Alpha遮罩
+    generateAlphaMask(filepath);
+    
+    return texture;
+}
+
+const AlphaMask* ResourceManager::getAlphaMask(const std::string& textureKey) const {
+    std::lock_guard<std::mutex> lock(textureMutex_);
+    
+    auto it = textureCache_.find(textureKey);
+    if (it != textureCache_.end()) {
+        if (auto texture = it->second.lock()) {
+            GLTexture* glTexture = static_cast<GLTexture*>(texture.get());
+            return glTexture->getAlphaMask();
+        }
+    }
+    return nullptr;
+}
+
+bool ResourceManager::generateAlphaMask(const std::string& textureKey) {
+    std::lock_guard<std::mutex> lock(textureMutex_);
+    
+    auto it = textureCache_.find(textureKey);
+    if (it != textureCache_.end()) {
+        if (auto texture = it->second.lock()) {
+            GLTexture* glTexture = static_cast<GLTexture*>(texture.get());
+            if (!glTexture->hasAlphaMask()) {
+                glTexture->generateAlphaMask();
+            }
+            return glTexture->hasAlphaMask();
+        }
+    }
+    return false;
+}
+
+bool ResourceManager::hasAlphaMask(const std::string& textureKey) const {
+    std::lock_guard<std::mutex> lock(textureMutex_);
+    
+    auto it = textureCache_.find(textureKey);
+    if (it != textureCache_.end()) {
+        if (auto texture = it->second.lock()) {
+            GLTexture* glTexture = static_cast<GLTexture*>(texture.get());
+            return glTexture->hasAlphaMask();
+        }
+    }
+    return false;
 }
 
 Ptr<Texture> ResourceManager::getTexture(const std::string& key) const {

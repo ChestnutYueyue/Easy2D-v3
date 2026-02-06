@@ -53,13 +53,13 @@ public:
     void setRoundedCornersEnabled(bool enabled);
     bool isRoundedCornersEnabled() const { return roundedCornersEnabled_; }
 
-    // 按图片像素边缘绘制设置（用于不规则形状按钮）
-    void setUseImageAlphaMask(bool enabled);
-    bool isUseImageAlphaMask() const { return useImageAlphaMask_; }
-
     // 鼠标光标设置（悬停时显示的光标形状）
     void setHoverCursor(CursorShape cursor);
     CursorShape getHoverCursor() const { return hoverCursor_; }
+    
+    // Alpha遮罩点击检测（用于不规则形状按钮）
+    void setUseAlphaMaskForHitTest(bool enabled);
+    bool isUseAlphaMaskForHitTest() const { return useAlphaMaskForHitTest_; }
 
     void setOnClick(Function<void()> callback);
 
@@ -102,12 +102,12 @@ private:
     float cornerRadius_ = 8.0f;           // 圆角半径
     bool roundedCornersEnabled_ = false;  // 默认关闭
 
-    // 图片Alpha遮罩（用于不规则形状按钮）
-    bool useImageAlphaMask_ = false;      // 默认关闭
-
     // 鼠标光标
     CursorShape hoverCursor_ = CursorShape::Hand;  // 悬停时默认显示手型光标
     bool cursorChanged_ = false;           // 标记是否已改变光标
+    
+    // Alpha遮罩点击检测（用于不规则形状按钮）
+    bool useAlphaMaskForHitTest_ = false;  // 默认关闭
 
     bool hovered_ = false;
     bool pressed_ = false;

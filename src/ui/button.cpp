@@ -125,11 +125,11 @@ void Button::setRoundedCornersEnabled(bool enabled) {
 }
 
 /**
- * @brief 设置是否使用图片Alpha遮罩（按图片像素边缘绘制）
+ * @brief 设置是否使用Alpha遮罩进行点击检测（用于不规则形状按钮）
  * @param enabled 是否启用
  */
-void Button::setUseImageAlphaMask(bool enabled) {
-    useImageAlphaMask_ = enabled;
+void Button::setUseAlphaMaskForHitTest(bool enabled) {
+    useAlphaMaskForHitTest_ = enabled;
 }
 
 /**
@@ -255,13 +255,8 @@ void Button::drawBackgroundImage(RenderBackend& renderer, const Rect& rect) {
 
     Rect destRect(drawPos.x, drawPos.y, drawSize.x, drawSize.y);
     
-    // 如果使用Alpha遮罩，需要特殊处理（在OpenGL中通过混合模式实现）
-    if (useImageAlphaMask_) {
-        // 使用Alpha混合模式，只绘制图片中非透明部分
-        renderer.drawSprite(*texture, destRect, Rect(0, 0, imageSize.x, imageSize.y), Colors::White, 0.0f, Vec2::Zero());
-    } else {
-        renderer.drawSprite(*texture, destRect, Rect(0, 0, imageSize.x, imageSize.y), Colors::White, 0.0f, Vec2::Zero());
-    }
+    // 绘制图片（使用Alpha混合）
+    renderer.drawSprite(*texture, destRect, Rect(0, 0, imageSize.x, imageSize.y), Colors::White, 0.0f, Vec2::Zero());
 }
 
 /**

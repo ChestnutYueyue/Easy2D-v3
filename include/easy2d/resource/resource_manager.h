@@ -2,6 +2,7 @@
 
 #include <easy2d/core/types.h>
 #include <easy2d/graphics/texture.h>
+#include <easy2d/graphics/alpha_mask.h>
 #include <easy2d/graphics/font.h>
 #include <easy2d/audio/sound.h>
 #include <string>
@@ -47,6 +48,9 @@ public:
     /// 加载纹理（带缓存）
     Ptr<Texture> loadTexture(const std::string& filepath);
     
+    /// 加载纹理并生成Alpha遮罩（用于不规则形状图片）
+    Ptr<Texture> loadTextureWithAlphaMask(const std::string& filepath);
+    
     /// 通过key获取已缓存的纹理
     Ptr<Texture> getTexture(const std::string& key) const;
     
@@ -55,6 +59,19 @@ public:
     
     /// 卸载指定纹理
     void unloadTexture(const std::string& key);
+    
+    // ------------------------------------------------------------------------
+    // Alpha遮罩资源
+    // ------------------------------------------------------------------------
+    
+    /// 获取纹理的Alpha遮罩（如果已生成）
+    const AlphaMask* getAlphaMask(const std::string& textureKey) const;
+    
+    /// 为已加载的纹理生成Alpha遮罩
+    bool generateAlphaMask(const std::string& textureKey);
+    
+    /// 检查纹理是否有Alpha遮罩
+    bool hasAlphaMask(const std::string& textureKey) const;
 
     // ------------------------------------------------------------------------
     // 字体图集资源

@@ -7,6 +7,11 @@ namespace easy2d {
 
 GLTexture::GLTexture(int width, int height, const uint8_t* pixels, int channels)
     : textureID_(0), width_(width), height_(height), channels_(channels) {
+    // 保存像素数据用于生成遮罩
+    if (pixels) {
+        pixelData_.resize(width * height * channels);
+        std::memcpy(pixelData_.data(), pixels, pixelData_.size());
+    }
     createTexture(pixels);
 }
 
@@ -18,6 +23,10 @@ GLTexture::GLTexture(const std::string& filepath)
     stbi_set_flip_vertically_on_load(false);
     uint8_t* data = stbi_load(filepath.c_str(), &width_, &height_, &channels_, 0);
     if (data) {
+        // 保存像素数据用于生成遮罩
+        pixelData_.resize(width_ * height_ * channels_);
+        std::memcpy(pixelData_.data(), data, pixelData_.size());
+        
         createTexture(data);
         stbi_image_free(data);
     } else {
@@ -87,6 +96,19 @@ void GLTexture::createTexture(const uint8_t* pixels) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
     glGenerateMipmap(GL_TEXTURE_2D);
+}
+
+void GLTexture::generateAlphaMask() {
+    if (pixelData_.empty() || width_ <= 0 || height_ <= 0) {
+        E2D_LOG_WARN("Cannot generate alpha mask: no pixel data available");
+        return;
+    }
+    
+    alphaMask_ = std::make_unique<AlphaMask>(
+        AlphaMask::createFromPixels(pixelData_.data(), width_, height_, channels_)
+    );
+    
+    E2D_LOG_DEBUG("Generated alpha mask for texture: {}x{}", width_, height_);
 }
 
 } // namespace easy2d
