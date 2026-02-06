@@ -5,6 +5,13 @@
 #include <easy2d/utils/logger.h>
 #include <GLFW/glfw3.h>
 
+// Windows 平台特定头文件，用于禁用最大化按钮
+#ifdef _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
+#include <windows.h>
+#endif
+
 namespace easy2d {
 
 Window::Window()
@@ -32,6 +39,7 @@ bool Window::create(const WindowConfig& config) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, config.resizable ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_MAXIMIZED, GLFW_FALSE);  // 禁止窗口最大化
 
     if (config.msaaSamples > 0) {
         glfwWindowHint(GLFW_SAMPLES, config.msaaSamples);
@@ -70,6 +78,24 @@ bool Window::create(const WindowConfig& config) {
     }
     fullscreen_ = config.fullscreen;
     vsync_ = config.vsync;
+
+#ifdef _WIN32
+    // 禁用最大化按钮（Windows 平台）
+    if (!config.resizable && window_) {
+        HWND hwnd = glfwGetWin32Window(window_);
+        if (hwnd) {
+            // 移除最大化按钮和可调整大小边框
+            LONG style = GetWindowLong(hwnd, GWL_STYLE);
+            style &= ~WS_MAXIMIZEBOX;  // 移除最大化按钮
+            style &= ~WS_THICKFRAME;   // 移除可调整大小的边框
+            SetWindowLong(hwnd, GWL_STYLE, style);
+            // 强制窗口重绘以应用新样式
+            SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+            E2D_LOG_INFO("Window maximize button disabled");
+        }
+    }
+#endif
 
     // 设置当前上下文
     glfwMakeContextCurrent(window_);
