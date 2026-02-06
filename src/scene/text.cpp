@@ -4,10 +4,15 @@
 
 namespace easy2d {
 
-Text::Text() = default;
+Text::Text() {
+    // 文字默认锚点为左上角，这样setPosition(0, 0)会在左上角显示
+    setAnchor(0.0f, 0.0f);
+}
 
 Text::Text(const String& text) : text_(text) {
     sizeDirty_ = true;
+    // 文字默认锚点为左上角，这样setPosition(0, 0)会在左上角显示
+    setAnchor(0.0f, 0.0f);
 }
 
 void Text::setText(const String& text) {
@@ -84,7 +89,6 @@ Rect Text::getBoundingBox() const {
     }
 
     Vec2 pos = getPosition();
-    auto anchor = getAnchor();
 
     if (alignment_ != Alignment::Left) {
         if (alignment_ == Alignment::Center) {
@@ -94,8 +98,6 @@ Rect Text::getBoundingBox() const {
         }
     }
 
-    pos.x -= anchor.x * size.x;
-    pos.y -= anchor.y * size.y;
     return Rect(pos.x, pos.y, size.x, size.y);
 }
 
@@ -105,7 +107,6 @@ void Text::onDraw(RenderBackend& renderer) {
     }
     
     Vec2 pos = getPosition();
-    auto anchor = getAnchor();
     
     // Calculate horizontal offset based on alignment
     if (alignment_ != Alignment::Left) {
@@ -116,10 +117,6 @@ void Text::onDraw(RenderBackend& renderer) {
             pos.x -= size.x;
         }
     }
-    
-    // Apply anchor offset
-    pos.x -= anchor.x * cachedSize_.x;
-    pos.y -= anchor.y * cachedSize_.y;
 
     renderer.drawText(*font_, text_, pos, color_);
 }
@@ -130,7 +127,6 @@ void Text::generateRenderCommand(std::vector<RenderCommand>& commands, int zOrde
     }
 
     Vec2 pos = getPosition();
-    auto anchor = getAnchor();
 
     // 计算对齐偏移（与 onDraw 一致）
     if (alignment_ != Alignment::Left) {
@@ -141,10 +137,6 @@ void Text::generateRenderCommand(std::vector<RenderCommand>& commands, int zOrde
             pos.x -= size.x;
         }
     }
-
-    // 应用锚点偏移
-    pos.x -= anchor.x * cachedSize_.x;
-    pos.y -= anchor.y * cachedSize_.y;
 
     // 创建渲染命令
     RenderCommand cmd;
