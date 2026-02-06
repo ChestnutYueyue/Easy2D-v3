@@ -143,9 +143,19 @@ void GLRenderer::drawSprite(const Texture& texture, const Rect& destRect, const 
     float texW = static_cast<float>(tex->getWidth());
     float texH = static_cast<float>(tex->getHeight());
     
-    data.texCoordMin = glm::vec2(srcRect.origin.x / texW, srcRect.origin.y / texH);
-    data.texCoordMax = glm::vec2((srcRect.origin.x + srcRect.size.width) / texW,
-                                  (srcRect.origin.y + srcRect.size.height) / texH);
+    // 纹理坐标计算
+    // OpenGL纹理坐标系：原点在左下角，V向上增加
+    // 图片数据：原点在左上角，Y向下增加
+    // 因此需要翻转V坐标：v' = 1 - v
+    float u1 = srcRect.origin.x / texW;
+    float u2 = (srcRect.origin.x + srcRect.size.width) / texW;
+    // 翻转V坐标
+    float v1 = 1.0f - (srcRect.origin.y / texH);
+    float v2 = 1.0f - ((srcRect.origin.y + srcRect.size.height) / texH);
+    
+    data.texCoordMin = glm::vec2(std::min(u1, u2), std::min(v1, v2));
+    data.texCoordMax = glm::vec2(std::max(u1, u2), std::max(v1, v2));
+    
     data.color = glm::vec4(tint.r, tint.g, tint.b, tint.a);
     data.rotation = rotation * 3.14159f / 180.0f;
     data.anchor = glm::vec2(anchor.x, anchor.y);
@@ -363,19 +373,14 @@ void GLRenderer::drawText(const FontAtlas& font, const String& text, float x, fl
             float yPos = baselineY + glyph->bearingY;
             
             Rect destRect(xPos, yPos, glyph->width, glyph->height);
-            float texW = static_cast<float>(font.getTexture()->getWidth());
-            float texH = static_cast<float>(font.getTexture()->getHeight());
-            Rect srcRect(glyph->u0 * texW, 
-                        glyph->v0 * texH,
-                        (glyph->u1 - glyph->u0) * texW,
-                        (glyph->v1 - glyph->v0) * texH);
+
             
+            // 字体纹理已经存储了正确的UV坐标，直接使用
             GLSpriteBatch::SpriteData data;
             data.position = glm::vec2(destRect.origin.x, destRect.origin.y);
             data.size = glm::vec2(destRect.size.width, destRect.size.height);
-            data.texCoordMin = glm::vec2(srcRect.origin.x / texW, srcRect.origin.y / texH);
-            data.texCoordMax = glm::vec2((srcRect.origin.x + srcRect.size.width) / texW,
-                                         (srcRect.origin.y + srcRect.size.height) / texH);
+            data.texCoordMin = glm::vec2(glyph->u0, glyph->v0);
+            data.texCoordMax = glm::vec2(glyph->u1, glyph->v1);
             data.color = glm::vec4(color.r, color.g, color.b, color.a);
             data.rotation = 0.0f;
             data.anchor = glm::vec2(0.0f, 0.0f);

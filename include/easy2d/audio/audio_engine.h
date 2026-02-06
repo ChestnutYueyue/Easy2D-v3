@@ -45,7 +45,8 @@ private:
     ~AudioEngine();
 
     ma_engine* engine_ = nullptr;
-    std::unordered_map<std::string, std::weak_ptr<Sound>> sounds_;
+    // 使用 shared_ptr 存储，确保在 AudioEngine 销毁前所有 Sound 都被销毁
+    std::unordered_map<std::string, std::shared_ptr<Sound>> sounds_;
     float masterVolume_ = 1.0f;
 };
 

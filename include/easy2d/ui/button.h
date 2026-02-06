@@ -14,6 +14,9 @@ enum class ImageScaleMode {
     ScaleFill       // 等比缩放，填充整个区域（可能裁剪）
 };
 
+// ============================================================================
+// 基础按钮类
+// ============================================================================
 class Button : public Widget {
 public:
     Button();
@@ -50,6 +53,10 @@ protected:
     void drawBackgroundImage(RenderBackend& renderer, const Rect& rect);
     Vec2 calculateImageSize(const Vec2& buttonSize, const Vec2& imageSize);
 
+    // 状态访问（供子类使用）
+    bool isHovered() const { return hovered_; }
+    bool isPressed() const { return pressed_; }
+
 private:
     String text_;
     Ptr<FontAtlas> font_;
@@ -78,6 +85,57 @@ private:
     bool pressed_ = false;
 
     Function<void()> onClick_;
+};
+
+// ============================================================================
+// 切换按钮 - 点击切换两种状态（支持图片和文字）
+// ============================================================================
+class ToggleImageButton : public Button {
+public:
+    ToggleImageButton();
+    ~ToggleImageButton() override = default;
+
+    static Ptr<ToggleImageButton> create();
+
+    // 设置两种状态的图片
+    void setStateImages(Ptr<Texture> stateOffNormal, Ptr<Texture> stateOnNormal,
+                        Ptr<Texture> stateOffHover = nullptr, Ptr<Texture> stateOnHover = nullptr,
+                        Ptr<Texture> stateOffPressed = nullptr, Ptr<Texture> stateOnPressed = nullptr);
+
+    // 设置两种状态的文字
+    void setStateText(const String& textOff, const String& textOn);
+
+    // 设置两种状态的文字颜色
+    void setStateTextColor(const Color& colorOff, const Color& colorOn);
+
+    // 获取/设置当前状态
+    bool isOn() const { return isOn_; }
+    void setOn(bool on);
+    void toggle();
+
+    // 设置状态改变回调
+    void setOnStateChange(Function<void(bool)> callback);
+
+protected:
+    void onDraw(RenderBackend& renderer) override;
+
+private:
+    // 状态图片
+    Ptr<Texture> imgOffNormal_, imgOnNormal_;
+    Ptr<Texture> imgOffHover_, imgOnHover_;
+    Ptr<Texture> imgOffPressed_, imgOnPressed_;
+
+    // 状态文字
+    String textOff_, textOn_;
+    bool useStateText_ = false;
+
+    // 状态文字颜色
+    Color textColorOff_ = Colors::White;
+    Color textColorOn_ = Colors::White;
+    bool useStateTextColor_ = false;
+
+    bool isOn_ = false;
+    Function<void(bool)> onStateChange_;
 };
 
 } // namespace easy2d

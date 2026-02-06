@@ -12,7 +12,10 @@ GLTexture::GLTexture(int width, int height, const uint8_t* pixels, int channels)
 
 GLTexture::GLTexture(const std::string& filepath)
     : textureID_(0), width_(0), height_(0), channels_(0) {
-    stbi_set_flip_vertically_on_load(true);
+    // 不翻转图片，保持原始方向
+    // OpenGL纹理坐标原点在左下角，图片数据原点在左上角
+    // 在渲染时通过纹理坐标翻转来处理
+    stbi_set_flip_vertically_on_load(false);
     uint8_t* data = stbi_load(filepath.c_str(), &width_, &height_, &channels_, 0);
     if (data) {
         createTexture(data);
@@ -79,8 +82,9 @@ void GLTexture::createTexture(const uint8_t* pixels) {
     
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // 使用 NEAREST 过滤器，更适合像素艺术风格的精灵
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     
     glGenerateMipmap(GL_TEXTURE_2D);
 }

@@ -59,11 +59,10 @@ std::shared_ptr<Sound> AudioEngine::loadSound(const std::string& name, const std
         return nullptr;
     }
 
+    // 检查是否已存在
     auto it = sounds_.find(name);
     if (it != sounds_.end()) {
-        if (auto sound = it->second.lock()) {
-            return sound;
-        }
+        return it->second;
     }
 
     ma_sound* maSound = new ma_sound();
@@ -85,7 +84,7 @@ std::shared_ptr<Sound> AudioEngine::loadSound(const std::string& name, const std
 std::shared_ptr<Sound> AudioEngine::getSound(const std::string& name) {
     auto it = sounds_.find(name);
     if (it != sounds_.end()) {
-        return it->second.lock();
+        return it->second;
     }
     return nullptr;
 }
@@ -99,7 +98,13 @@ void AudioEngine::unloadSound(const std::string& name) {
 }
 
 void AudioEngine::unloadAllSounds() {
+    // 先停止所有声音
+    stopAll();
+    
+    // 强制销毁所有 Sound 对象（通过重置 weak_ptr 并让 shared_ptr 自然释放）
+    // 注意：这要求所有持有 Sound 的地方都释放引用
     sounds_.clear();
+    
     E2D_LOG_DEBUG("Unloaded all sounds");
 }
 
@@ -128,8 +133,8 @@ void AudioEngine::resumeAll() {
 
 void AudioEngine::stopAll() {
     for (auto& pair : sounds_) {
-        if (auto sound = pair.second.lock()) {
-            sound->stop();
+        if (pair.second) {
+            pair.second->stop();
         }
     }
 }

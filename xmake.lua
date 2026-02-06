@@ -188,3 +188,17 @@ target("transition_demo")
     add_deps("easy2d")
     set_targetdir("$(builddir)/bin")
 target_end()
+
+-- ==============================================
+-- 9. 推箱子游戏示例
+-- ==============================================
+target("push_box")
+    set_kind("binary")
+    add_files("examples/push_box/src/**.cpp")
+    add_deps("easy2d")
+    set_targetdir("$(builddir)/bin")
+    -- 复制资源文件到输出目录
+    after_build(function (target)
+        os.cp("examples/push_box/src/assets", target:targetdir())
+    end)
+target_end()

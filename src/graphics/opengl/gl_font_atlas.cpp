@@ -162,10 +162,14 @@ void GLFontAtlas::cacheGlyph(char32_t codepoint) const {
         glyph.bearingY = static_cast<float>(yoff);
         glyph.advance = advancePx;
 
+        // stb_rect_pack 使用左上角为原点，OpenGL纹理使用左下角为原点
+        // 需要翻转V坐标
+        float v0 = static_cast<float>(atlasY) / ATLAS_HEIGHT;
+        float v1 = static_cast<float>(atlasY + h) / ATLAS_HEIGHT;
         glyph.u0 = static_cast<float>(atlasX) / ATLAS_WIDTH;
-        glyph.v0 = static_cast<float>(atlasY) / ATLAS_HEIGHT;
+        glyph.v0 = 1.0f - v1;  // 翻转V坐标
         glyph.u1 = static_cast<float>(atlasX + w) / ATLAS_WIDTH;
-        glyph.v1 = static_cast<float>(atlasY + h) / ATLAS_HEIGHT;
+        glyph.v1 = 1.0f - v0;  // 翻转V坐标
 
         glyphs_[codepoint] = glyph;
 
@@ -173,7 +177,8 @@ void GLFontAtlas::cacheGlyph(char32_t codepoint) const {
         GLint prevUnpackAlignment = 4;
         glGetIntegerv(GL_UNPACK_ALIGNMENT, &prevUnpackAlignment);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, atlasX, atlasY, w, h, GL_RED, GL_UNSIGNED_BYTE, sdf);
+        // OpenGL纹理坐标原点在左下角，需要将Y坐标翻转
+        glTexSubImage2D(GL_TEXTURE_2D, 0, atlasX, ATLAS_HEIGHT - atlasY - h, w, h, GL_RED, GL_UNSIGNED_BYTE, sdf);
         glPixelStorei(GL_UNPACK_ALIGNMENT, prevUnpackAlignment);
 
         stbtt_FreeSDF(sdf, nullptr);
@@ -223,10 +228,14 @@ void GLFontAtlas::cacheGlyph(char32_t codepoint) const {
     glyph.advance = advancePx;
 
     // 计算纹理坐标（相对于图集）
+    // stb_rect_pack 使用左上角为原点，OpenGL纹理使用左下角为原点
+    // 需要翻转V坐标
+    float v0 = static_cast<float>(atlasY) / ATLAS_HEIGHT;
+    float v1 = static_cast<float>(atlasY + h) / ATLAS_HEIGHT;
     glyph.u0 = static_cast<float>(atlasX) / ATLAS_WIDTH;
-    glyph.v0 = static_cast<float>(atlasY) / ATLAS_HEIGHT;
+    glyph.v0 = 1.0f - v1;  // 翻转V坐标
     glyph.u1 = static_cast<float>(atlasX + w) / ATLAS_WIDTH;
-    glyph.v1 = static_cast<float>(atlasY + h) / ATLAS_HEIGHT;
+    glyph.v1 = 1.0f - v0;  // 翻转V坐标
 
     // 存储字形
     glyphs_[codepoint] = glyph;
@@ -242,8 +251,9 @@ void GLFontAtlas::cacheGlyph(char32_t codepoint) const {
     }
 
     // 更新纹理 - 将字形数据上传到图集的指定位置
+    // OpenGL纹理坐标原点在左下角，需要将Y坐标翻转
     glBindTexture(GL_TEXTURE_2D, texture_->getTextureID());
-    glTexSubImage2D(GL_TEXTURE_2D, 0, atlasX, atlasY, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgbaData.data());
+    glTexSubImage2D(GL_TEXTURE_2D, 0, atlasX, ATLAS_HEIGHT - atlasY - h, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rgbaData.data());
 }
 
 } // namespace easy2d
