@@ -98,6 +98,17 @@ bool Window::create(const WindowConfig& config) {
 
 void Window::destroy() {
     if (window_) {
+        // 销毁自定义光标
+        if (cursors_.arrow) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.arrow)); cursors_.arrow = nullptr; }
+        if (cursors_.ibeam) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.ibeam)); cursors_.ibeam = nullptr; }
+        if (cursors_.crosshair) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.crosshair)); cursors_.crosshair = nullptr; }
+        if (cursors_.hand) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.hand)); cursors_.hand = nullptr; }
+        if (cursors_.hresize) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.hresize)); cursors_.hresize = nullptr; }
+        if (cursors_.vresize) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.vresize)); cursors_.vresize = nullptr; }
+        if (cursors_.resizeAll) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.resizeAll)); cursors_.resizeAll = nullptr; }
+        if (cursors_.resizeNWSE) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.resizeNWSE)); cursors_.resizeNWSE = nullptr; }
+        if (cursors_.resizeNESW) { glfwDestroyCursor(static_cast<GLFWcursor*>(cursors_.resizeNESW)); cursors_.resizeNESW = nullptr; }
+
         input_.reset();
         glfwSetWindowUserPointer(window_, nullptr);
         glfwUserPointer_.reset();
@@ -246,6 +257,68 @@ void Window::windowCloseCallback(GLFWwindow* window) {
     Window* self = ctx ? ctx->window : nullptr;
     if (self && self->closeCallback_) {
         self->closeCallback_();
+    }
+}
+
+void Window::setCursor(CursorShape shape) {
+    if (!window_) return;
+
+    void** cursorPtr = nullptr;
+    int glfwShape = GLFW_ARROW_CURSOR;
+
+    switch (shape) {
+        case CursorShape::Arrow:
+            cursorPtr = &cursors_.arrow;
+            glfwShape = GLFW_ARROW_CURSOR;
+            break;
+        case CursorShape::IBeam:
+            cursorPtr = &cursors_.ibeam;
+            glfwShape = GLFW_IBEAM_CURSOR;
+            break;
+        case CursorShape::Crosshair:
+            cursorPtr = &cursors_.crosshair;
+            glfwShape = GLFW_CROSSHAIR_CURSOR;
+            break;
+        case CursorShape::Hand:
+            cursorPtr = &cursors_.hand;
+            glfwShape = GLFW_HAND_CURSOR;
+            break;
+        case CursorShape::HResize:
+            cursorPtr = &cursors_.hresize;
+            glfwShape = GLFW_HRESIZE_CURSOR;
+            break;
+        case CursorShape::VResize:
+            cursorPtr = &cursors_.vresize;
+            glfwShape = GLFW_VRESIZE_CURSOR;
+            break;
+        case CursorShape::ResizeAll:
+            cursorPtr = &cursors_.resizeAll;
+            glfwShape = GLFW_RESIZE_ALL_CURSOR;
+            break;
+        case CursorShape::ResizeNWSE:
+            cursorPtr = &cursors_.resizeNWSE;
+            glfwShape = GLFW_RESIZE_NWSE_CURSOR;
+            break;
+        case CursorShape::ResizeNESW:
+            cursorPtr = &cursors_.resizeNESW;
+            glfwShape = GLFW_RESIZE_NESW_CURSOR;
+            break;
+    }
+
+    if (cursorPtr) {
+        // 延迟创建光标
+        if (!*cursorPtr) {
+            *cursorPtr = glfwCreateStandardCursor(glfwShape);
+        }
+        if (*cursorPtr) {
+            glfwSetCursor(window_, static_cast<GLFWcursor*>(*cursorPtr));
+        }
+    }
+}
+
+void Window::resetCursor() {
+    if (window_) {
+        glfwSetCursor(window_, nullptr);
     }
 }
 

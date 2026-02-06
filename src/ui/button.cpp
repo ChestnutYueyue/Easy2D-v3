@@ -1,6 +1,8 @@
 #include <easy2d/ui/button.h>
 #include <easy2d/graphics/render_backend.h>
+#include <easy2d/app/application.h>
 #include <algorithm>
+#include <cmath>
 
 namespace easy2d {
 
@@ -10,8 +12,23 @@ namespace easy2d {
 Button::Button() {
     setSpatialIndexed(false);
     auto& dispatcher = getEventDispatcher();
-    dispatcher.addListener(EventType::UIHoverEnter, [this](Event&) { hovered_ = true; });
-    dispatcher.addListener(EventType::UIHoverExit, [this](Event&) { hovered_ = false; pressed_ = false; });
+    dispatcher.addListener(EventType::UIHoverEnter, [this](Event&) {
+        hovered_ = true;
+        // 鼠标进入按钮区域，改变光标为手型
+        auto& app = Application::instance();
+        app.window().setCursor(hoverCursor_);
+        cursorChanged_ = true;
+    });
+    dispatcher.addListener(EventType::UIHoverExit, [this](Event&) {
+        hovered_ = false;
+        pressed_ = false;
+        // 鼠标离开按钮区域，恢复默认光标
+        if (cursorChanged_) {
+            auto& app = Application::instance();
+            app.window().resetCursor();
+            cursorChanged_ = false;
+        }
+    });
     dispatcher.addListener(EventType::UIPressed, [this](Event&) { pressed_ = true; });
     dispatcher.addListener(EventType::UIReleased, [this](Event&) { pressed_ = false; });
     dispatcher.addListener(EventType::UIClicked, [this](Event&) { if (onClick_) onClick_(); });
@@ -92,11 +109,43 @@ void Button::setBorder(const Color& color, float width) {
 }
 
 /**
+ * @brief 设置圆角半径
+ * @param radius 圆角半径（像素）
+ */
+void Button::setCornerRadius(float radius) {
+    cornerRadius_ = std::max(0.0f, radius);
+}
+
+/**
+ * @brief 设置是否启用圆角矩形
+ * @param enabled 是否启用
+ */
+void Button::setRoundedCornersEnabled(bool enabled) {
+    roundedCornersEnabled_ = enabled;
+}
+
+/**
+ * @brief 设置是否使用图片Alpha遮罩（按图片像素边缘绘制）
+ * @param enabled 是否启用
+ */
+void Button::setUseImageAlphaMask(bool enabled) {
+    useImageAlphaMask_ = enabled;
+}
+
+/**
  * @brief 设置点击回调函数
  * @param callback 回调函数
  */
 void Button::setOnClick(Function<void()> callback) {
     onClick_ = std::move(callback);
+}
+
+/**
+ * @brief 设置悬停时的鼠标光标形状
+ * @param cursor 光标形状枚举
+ */
+void Button::setHoverCursor(CursorShape cursor) {
+    hoverCursor_ = cursor;
 }
 
 /**
@@ -205,7 +254,168 @@ void Button::drawBackgroundImage(RenderBackend& renderer, const Rect& rect) {
     );
 
     Rect destRect(drawPos.x, drawPos.y, drawSize.x, drawSize.y);
-    renderer.drawSprite(*texture, destRect, Rect(0, 0, imageSize.x, imageSize.y), Colors::White, 0.0f, Vec2::Zero());
+    
+    // 如果使用Alpha遮罩，需要特殊处理（在OpenGL中通过混合模式实现）
+    if (useImageAlphaMask_) {
+        // 使用Alpha混合模式，只绘制图片中非透明部分
+        renderer.drawSprite(*texture, destRect, Rect(0, 0, imageSize.x, imageSize.y), Colors::White, 0.0f, Vec2::Zero());
+    } else {
+        renderer.drawSprite(*texture, destRect, Rect(0, 0, imageSize.x, imageSize.y), Colors::White, 0.0f, Vec2::Zero());
+    }
+}
+
+/**
+ * @brief 绘制圆角矩形边框
+ * @param renderer 渲染后端
+ * @param rect 矩形区域
+ * @param color 颜色
+ * @param radius 圆角半径
+ */
+void Button::drawRoundedRect(RenderBackend& renderer, const Rect& rect, const Color& color, float radius) {
+    // 限制圆角半径不超过矩形尺寸的一半
+    float maxRadius = std::min(rect.size.width, rect.size.height) * 0.5f;
+    radius = std::min(radius, maxRadius);
+    
+    if (radius <= 0.0f) {
+        // 圆角为0，使用普通矩形
+        renderer.drawRect(rect, color, borderWidth_);
+        return;
+    }
+
+    const int segments = 8; // 每个圆角的线段数
+    float x = rect.origin.x;
+    float y = rect.origin.y;
+    float w = rect.size.width;
+    float h = rect.size.height;
+    float r = radius;
+
+    // 绘制四条直线边
+    // 上边
+    renderer.drawLine(Vec2(x + r, y), Vec2(x + w - r, y), color, borderWidth_);
+    // 下边
+    renderer.drawLine(Vec2(x + r, y + h), Vec2(x + w - r, y + h), color, borderWidth_);
+    // 左边
+    renderer.drawLine(Vec2(x, y + r), Vec2(x, y + h - r), color, borderWidth_);
+    // 右边
+    renderer.drawLine(Vec2(x + w, y + r), Vec2(x + w, y + h - r), color, borderWidth_);
+
+    // 绘制四个圆角（使用线段近似）
+    // 左上角
+    for (int i = 0; i < segments; i++) {
+        float angle1 = 3.14159f * 0.5f * (float)i / segments + 3.14159f;
+        float angle2 = 3.14159f * 0.5f * (float)(i + 1) / segments + 3.14159f;
+        Vec2 p1(x + r + r * cosf(angle1), y + r + r * sinf(angle1));
+        Vec2 p2(x + r + r * cosf(angle2), y + r + r * sinf(angle2));
+        renderer.drawLine(p1, p2, color, borderWidth_);
+    }
+    // 右上角
+    for (int i = 0; i < segments; i++) {
+        float angle1 = 3.14159f * 0.5f * (float)i / segments + 3.14159f * 1.5f;
+        float angle2 = 3.14159f * 0.5f * (float)(i + 1) / segments + 3.14159f * 1.5f;
+        Vec2 p1(x + w - r + r * cosf(angle1), y + r + r * sinf(angle1));
+        Vec2 p2(x + w - r + r * cosf(angle2), y + r + r * sinf(angle2));
+        renderer.drawLine(p1, p2, color, borderWidth_);
+    }
+    // 右下角
+    for (int i = 0; i < segments; i++) {
+        float angle1 = 3.14159f * 0.5f * (float)i / segments;
+        float angle2 = 3.14159f * 0.5f * (float)(i + 1) / segments;
+        Vec2 p1(x + w - r + r * cosf(angle1), y + h - r + r * sinf(angle1));
+        Vec2 p2(x + w - r + r * cosf(angle2), y + h - r + r * sinf(angle2));
+        renderer.drawLine(p1, p2, color, borderWidth_);
+    }
+    // 左下角
+    for (int i = 0; i < segments; i++) {
+        float angle1 = 3.14159f * 0.5f * (float)i / segments + 3.14159f * 0.5f;
+        float angle2 = 3.14159f * 0.5f * (float)(i + 1) / segments + 3.14159f * 0.5f;
+        Vec2 p1(x + r + r * cosf(angle1), y + h - r + r * sinf(angle1));
+        Vec2 p2(x + r + r * cosf(angle2), y + h - r + r * sinf(angle2));
+        renderer.drawLine(p1, p2, color, borderWidth_);
+    }
+}
+
+/**
+ * @brief 填充圆角矩形
+ * @param renderer 渲染后端
+ * @param rect 矩形区域
+ * @param color 颜色
+ * @param radius 圆角半径
+ */
+void Button::fillRoundedRect(RenderBackend& renderer, const Rect& rect, const Color& color, float radius) {
+    // 限制圆角半径不超过矩形尺寸的一半
+    float maxRadius = std::min(rect.size.width, rect.size.height) * 0.5f;
+    radius = std::min(radius, maxRadius);
+    
+    if (radius <= 0.0f) {
+        // 圆角为0，使用普通矩形填充
+        renderer.fillRect(rect, color);
+        return;
+    }
+
+    const int segments = 8; // 每个圆角的线段数
+    float x = rect.origin.x;
+    float y = rect.origin.y;
+    float w = rect.size.width;
+    float h = rect.size.height;
+    float r = radius;
+
+    // 构建圆角矩形的顶点（使用三角形扇形填充）
+    std::vector<Vec2> vertices;
+    
+    // 中心矩形区域
+    vertices.push_back(Vec2(x + r, y + r));           // 左上内角
+    vertices.push_back(Vec2(x + w - r, y + r));       // 右上内角
+    vertices.push_back(Vec2(x + w - r, y + h - r));   // 右下内角
+    vertices.push_back(Vec2(x + r, y + h - r));       // 左下内角
+    
+    renderer.fillPolygon(vertices, color);
+    
+    // 填充四个侧边矩形
+    // 上边
+    renderer.fillRect(Rect(x + r, y, w - 2 * r, r), color);
+    // 下边
+    renderer.fillRect(Rect(x + r, y + h - r, w - 2 * r, r), color);
+    // 左边
+    renderer.fillRect(Rect(x, y + r, r, h - 2 * r), color);
+    // 右边
+    renderer.fillRect(Rect(x + w - r, y + r, r, h - 2 * r), color);
+
+    // 填充四个圆角（使用扇形）
+    // 左上角
+    vertices.clear();
+    vertices.push_back(Vec2(x + r, y + r));
+    for (int i = 0; i <= segments; i++) {
+        float angle = 3.14159f + 3.14159f * 0.5f * (float)i / segments;
+        vertices.push_back(Vec2(x + r + r * cosf(angle), y + r + r * sinf(angle)));
+    }
+    renderer.fillPolygon(vertices, color);
+    
+    // 右上角
+    vertices.clear();
+    vertices.push_back(Vec2(x + w - r, y + r));
+    for (int i = 0; i <= segments; i++) {
+        float angle = 3.14159f * 1.5f + 3.14159f * 0.5f * (float)i / segments;
+        vertices.push_back(Vec2(x + w - r + r * cosf(angle), y + r + r * sinf(angle)));
+    }
+    renderer.fillPolygon(vertices, color);
+    
+    // 右下角
+    vertices.clear();
+    vertices.push_back(Vec2(x + w - r, y + h - r));
+    for (int i = 0; i <= segments; i++) {
+        float angle = 0 + 3.14159f * 0.5f * (float)i / segments;
+        vertices.push_back(Vec2(x + w - r + r * cosf(angle), y + h - r + r * sinf(angle)));
+    }
+    renderer.fillPolygon(vertices, color);
+    
+    // 左下角
+    vertices.clear();
+    vertices.push_back(Vec2(x + r, y + h - r));
+    for (int i = 0; i <= segments; i++) {
+        float angle = 3.14159f * 0.5f + 3.14159f * 0.5f * (float)i / segments;
+        vertices.push_back(Vec2(x + r + r * cosf(angle), y + h - r + r * sinf(angle)));
+    }
+    renderer.fillPolygon(vertices, color);
 }
 
 /**
@@ -231,9 +441,7 @@ void Button::onDraw(RenderBackend& renderer) {
         // 图片背景使用精灵批次绘制
         drawBackgroundImage(renderer, rect);
     } else {
-        // 纯色背景使用 fillRect 直接绘制
-        // 注意：fillRect 使用形状渲染管线，与精灵批次不同
-        // 需要先结束当前精灵批次，绘制完成后再重新开始
+        // 纯色背景使用 fillRect 或 fillRoundedRect 绘制
         renderer.endSpriteBatch();
         
         Color bg = bgNormal_;
@@ -242,47 +450,48 @@ void Button::onDraw(RenderBackend& renderer) {
         } else if (hovered_) {
             bg = bgHover_;
         }
-        renderer.fillRect(rect, bg);
         
-        // 重新开始精灵批次，以便后续绘制
+        if (roundedCornersEnabled_) {
+            fillRoundedRect(renderer, rect, bg, cornerRadius_);
+        } else {
+            renderer.fillRect(rect, bg);
+        }
+        
         renderer.beginSpriteBatch();
     }
 
     // ========== 第2层：绘制边框 ==========
-    // 边框也使用形状渲染，需要先结束精灵批次
     renderer.endSpriteBatch();
     
     if (borderWidth_ > 0.0f) {
-        renderer.drawRect(rect, borderColor_, borderWidth_);
+        if (roundedCornersEnabled_) {
+            drawRoundedRect(renderer, rect, borderColor_, cornerRadius_);
+        } else {
+            renderer.drawRect(rect, borderColor_, borderWidth_);
+        }
     }
     
-    // 重新开始精灵批次
     renderer.beginSpriteBatch();
 
     // ========== 第3层：绘制文字 ==========
-    // 文字使用精灵批次绘制
     if (font_ && !text_.empty()) {
         Vec2 textSize = font_->measureText(text_);
         
-        // 计算文字位置（居中）
         Vec2 textPos(
             rect.center().x - textSize.x * 0.5f,
             rect.center().y - textSize.y * 0.5f
         );
 
-        // 应用内边距限制，确保文字不会超出按钮边界
         float minX = rect.left() + padding_.x;
         float minY = rect.top() + padding_.y;
         float maxX = rect.right() - padding_.x - textSize.x;
         float maxY = rect.bottom() - padding_.y - textSize.y;
         
-        // 限制文字位置在有效区域内
         textPos.x = std::max(minX, std::min(textPos.x, maxX));
         textPos.y = std::max(minY, std::min(textPos.y, maxY));
 
-        // 使用不透明的文字颜色，确保文字清晰可见
         Color finalTextColor = textColor_;
-        finalTextColor.a = 1.0f; // 确保文字完全不透明
+        finalTextColor.a = 1.0f;
         
         renderer.drawText(*font_, text_, textPos, finalTextColor);
     }
@@ -296,7 +505,6 @@ void Button::onDraw(RenderBackend& renderer) {
  * @brief 切换按钮构造函数
  */
 ToggleImageButton::ToggleImageButton() {
-    // 修改点击回调为切换状态
     setOnClick([this]() {
         toggle();
     });
@@ -329,7 +537,6 @@ void ToggleImageButton::setStateImages(Ptr<Texture> stateOffNormal, Ptr<Texture>
     imgOffPressed_ = stateOffPressed ? stateOffPressed : stateOffNormal;
     imgOnPressed_ = stateOnPressed ? stateOnPressed : stateOnNormal;
 
-    // 设置默认大小为图片大小
     if (imgOffNormal_) {
         setSize(static_cast<float>(imgOffNormal_->getWidth()),
                 static_cast<float>(imgOffNormal_->getHeight()));
@@ -393,9 +600,6 @@ void ToggleImageButton::setStateTextColor(const Color& colorOff, const Color& co
  * 1. 状态图片背景 - 最底层
  * 2. 边框 - 中间层
  * 3. 状态文字 - 最顶层
- * 
- * 注意：此方法在场景渲染的精灵批次中被调用。
- * 由于 drawRect 使用形状渲染管线，需要在调用它之前结束精灵批次。
  */
 void ToggleImageButton::onDraw(RenderBackend& renderer) {
     Rect rect = getBoundingBox();
@@ -407,7 +611,6 @@ void ToggleImageButton::onDraw(RenderBackend& renderer) {
     Ptr<Texture> texture = nullptr;
 
     if (isOn_) {
-        // ON 状态
         if (isPressed() && imgOnPressed_) {
             texture = imgOnPressed_;
         } else if (isHovered() && imgOnHover_) {
@@ -416,7 +619,6 @@ void ToggleImageButton::onDraw(RenderBackend& renderer) {
             texture = imgOnNormal_;
         }
     } else {
-        // OFF 状态
         if (isPressed() && imgOffPressed_) {
             texture = imgOffPressed_;
         } else if (isHovered() && imgOffHover_) {
@@ -426,15 +628,11 @@ void ToggleImageButton::onDraw(RenderBackend& renderer) {
         }
     }
 
-    // 绘制图片背景（使用精灵批次）
     if (texture) {
         Vec2 imageSize(static_cast<float>(texture->getWidth()), static_cast<float>(texture->getHeight()));
         Vec2 buttonSize(rect.size.width, rect.size.height);
-
-        // 计算绘制大小（使用 Original 模式）
         Vec2 drawSize = imageSize;
 
-        // 计算绘制位置（居中）
         Vec2 drawPos(
             rect.origin.x + (buttonSize.x - drawSize.x) * 0.5f,
             rect.origin.y + (buttonSize.y - drawSize.y) * 0.5f
@@ -445,22 +643,23 @@ void ToggleImageButton::onDraw(RenderBackend& renderer) {
     }
 
     // ========== 第2层：绘制边框 ==========
-    // 边框使用形状渲染，需要先结束精灵批次
     renderer.endSpriteBatch();
     
     float borderWidth = 1.0f;
     Color borderColor = isOn_ ? Color(0.0f, 1.0f, 0.0f, 0.8f) : Color(0.6f, 0.6f, 0.6f, 1.0f);
     if (borderWidth > 0.0f) {
-        renderer.drawRect(rect, borderColor, borderWidth);
+        if (isRoundedCornersEnabled()) {
+            drawRoundedRect(renderer, rect, borderColor, getCornerRadius());
+        } else {
+            renderer.drawRect(rect, borderColor, borderWidth);
+        }
     }
     
-    // 重新开始精灵批次
     renderer.beginSpriteBatch();
 
     // ========== 第3层：绘制状态文字 ==========
     auto font = getFont();
     if (font) {
-        // 选择要显示的文字
         String textToDraw;
         if (useStateText_) {
             textToDraw = isOn_ ? textOn_ : textOff_;
@@ -468,7 +667,6 @@ void ToggleImageButton::onDraw(RenderBackend& renderer) {
             textToDraw = getText();
         }
 
-        // 选择文字颜色
         Color colorToUse;
         if (useStateTextColor_) {
             colorToUse = isOn_ ? textColorOn_ : textColorOff_;
@@ -480,7 +678,6 @@ void ToggleImageButton::onDraw(RenderBackend& renderer) {
             Vec2 textSize = font->measureText(textToDraw);
             Vec2 textPos(rect.center().x - textSize.x * 0.5f, rect.center().y - textSize.y * 0.5f);
             
-            // 确保文字颜色完全不透明
             colorToUse.a = 1.0f;
             
             renderer.drawText(*font, textToDraw, textPos, colorToUse);

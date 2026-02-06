@@ -29,6 +29,21 @@ struct WindowConfig {
 };
 
 // ============================================================================
+// 鼠标光标形状枚举
+// ============================================================================
+enum class CursorShape {
+    Arrow,      // 默认箭头
+    IBeam,      // 文本输入光标（I形）
+    Crosshair,  // 十字准线
+    Hand,       // 手型（链接悬停）
+    HResize,    // 水平调整大小
+    VResize,    // 垂直调整大小
+    ResizeAll,  // 四向调整大小
+    ResizeNWSE, // 对角线调整大小（西北-东南）
+    ResizeNESW  // 对角线调整大小（东北-西南）
+};
+
+// ============================================================================
 // Window 类 - GLFW 封装
 // ============================================================================
 class Window {
@@ -86,6 +101,10 @@ public:
     // 获取输入管理器
     Input* getInput() const { return input_.get(); }
 
+    // 鼠标光标设置
+    void setCursor(CursorShape shape);
+    void resetCursor();
+
     // 窗口回调
     using ResizeCallback = std::function<void(int width, int height)>;
     using FocusCallback = std::function<void(bool focused)>;
@@ -105,6 +124,19 @@ private:
     EventQueue* eventQueue_;
     UniquePtr<Input> input_;
     UniquePtr<GlfwUserPointer> glfwUserPointer_;
+
+    // 光标管理
+    struct CursorData {
+        void* arrow = nullptr;
+        void* ibeam = nullptr;
+        void* crosshair = nullptr;
+        void* hand = nullptr;
+        void* hresize = nullptr;
+        void* vresize = nullptr;
+        void* resizeAll = nullptr;
+        void* resizeNWSE = nullptr;
+        void* resizeNESW = nullptr;
+    } cursors_;
 
     ResizeCallback resizeCallback_;
     FocusCallback focusCallback_;

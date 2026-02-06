@@ -3,6 +3,7 @@
 #include <easy2d/ui/widget.h>
 #include <easy2d/graphics/font.h>
 #include <easy2d/graphics/texture.h>
+#include <easy2d/platform/window.h>
 
 namespace easy2d {
 
@@ -46,11 +47,27 @@ public:
     void setCustomSize(const Vec2& size);
     void setCustomSize(float width, float height);
 
+    // 圆角矩形设置
+    void setCornerRadius(float radius);
+    float getCornerRadius() const { return cornerRadius_; }
+    void setRoundedCornersEnabled(bool enabled);
+    bool isRoundedCornersEnabled() const { return roundedCornersEnabled_; }
+
+    // 按图片像素边缘绘制设置（用于不规则形状按钮）
+    void setUseImageAlphaMask(bool enabled);
+    bool isUseImageAlphaMask() const { return useImageAlphaMask_; }
+
+    // 鼠标光标设置（悬停时显示的光标形状）
+    void setHoverCursor(CursorShape cursor);
+    CursorShape getHoverCursor() const { return hoverCursor_; }
+
     void setOnClick(Function<void()> callback);
 
 protected:
     void onDraw(RenderBackend& renderer) override;
     void drawBackgroundImage(RenderBackend& renderer, const Rect& rect);
+    void drawRoundedRect(RenderBackend& renderer, const Rect& rect, const Color& color, float radius);
+    void fillRoundedRect(RenderBackend& renderer, const Rect& rect, const Color& color, float radius);
     Vec2 calculateImageSize(const Vec2& buttonSize, const Vec2& imageSize);
 
     // 状态访问（供子类使用）
@@ -80,6 +97,17 @@ private:
     // 边框
     Color borderColor_ = Color(0.6f, 0.6f, 0.6f, 1.0f);
     float borderWidth_ = 1.0f;
+
+    // 圆角矩形
+    float cornerRadius_ = 8.0f;           // 圆角半径
+    bool roundedCornersEnabled_ = false;  // 默认关闭
+
+    // 图片Alpha遮罩（用于不规则形状按钮）
+    bool useImageAlphaMask_ = false;      // 默认关闭
+
+    // 鼠标光标
+    CursorShape hoverCursor_ = CursorShape::Hand;  // 悬停时默认显示手型光标
+    bool cursorChanged_ = false;           // 标记是否已改变光标
 
     bool hovered_ = false;
     bool pressed_ = false;
