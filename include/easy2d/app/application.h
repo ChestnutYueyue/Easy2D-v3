@@ -17,8 +17,6 @@ class TimerManager;
 class EventQueue;
 class EventDispatcher;
 class Camera;
-class RenderThread;
-class FrameDataBuffer;
 
 // ============================================================================
 // Application 配置
@@ -32,7 +30,6 @@ struct AppConfig {
     int fpsLimit = 0;  // 0 = 不限制
     BackendType renderBackend = BackendType::OpenGL;
     int msaaSamples = 0;
-    bool multiThreadedRendering = false;  // 多线程渲染
 };
 
 // ============================================================================
@@ -97,7 +94,6 @@ private:
     void mainLoop();
     void update();
     void render();
-    void prepareFrameData();
 
     // 配置
     AppConfig config_;
@@ -111,15 +107,12 @@ private:
     UniquePtr<EventQueue> eventQueue_;
     UniquePtr<EventDispatcher> eventDispatcher_;
     UniquePtr<Camera> camera_;
-    UniquePtr<RenderThread> renderThread_;
-    UniquePtr<FrameDataBuffer> frameDataBuffer_;
 
     // 状态
     bool initialized_ = false;
     bool running_ = false;
     bool paused_ = false;
     bool shouldQuit_ = false;
-    bool multiThreadedRendering_ = false;
 
     // 时间
     float deltaTime_ = 0.0f;
