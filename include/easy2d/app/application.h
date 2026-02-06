@@ -26,6 +26,7 @@ struct AppConfig {
     int width = 800;
     int height = 600;
     bool fullscreen = false;
+    bool resizable = true;  // 窗口是否可调整大小
     bool vsync = true;
     int fpsLimit = 0;  // 0 = 不限制
     BackendType renderBackend = BackendType::OpenGL;

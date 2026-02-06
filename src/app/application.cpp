@@ -46,6 +46,7 @@ bool Application::init(const AppConfig& config) {
     winConfig.width = config.width;
     winConfig.height = config.height;
     winConfig.fullscreen = config.fullscreen;
+    winConfig.resizable = config.resizable;
     winConfig.vsync = config.vsync;
     winConfig.msaaSamples = config.msaaSamples;
     
