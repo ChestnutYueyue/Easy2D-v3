@@ -184,6 +184,27 @@ bool Window::isMaximized() const {
     return window_ ? glfwGetWindowAttrib(window_, GLFW_MAXIMIZED) : false;
 }
 
+float Window::getContentScaleX() const {
+    if (!window_) return 1.0f;
+    float xscale, yscale;
+    glfwGetWindowContentScale(window_, &xscale, &yscale);
+    return xscale;
+}
+
+float Window::getContentScaleY() const {
+    if (!window_) return 1.0f;
+    float xscale, yscale;
+    glfwGetWindowContentScale(window_, &xscale, &yscale);
+    return yscale;
+}
+
+Vec2 Window::getContentScale() const {
+    if (!window_) return Vec2(1.0f, 1.0f);
+    float xscale, yscale;
+    glfwGetWindowContentScale(window_, &xscale, &yscale);
+    return Vec2(xscale, yscale);
+}
+
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     auto* ctx = static_cast<GlfwUserPointer*>(glfwGetWindowUserPointer(window));
     Window* self = ctx ? ctx->window : nullptr;

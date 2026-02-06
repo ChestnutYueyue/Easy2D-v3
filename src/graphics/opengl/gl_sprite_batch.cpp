@@ -159,11 +159,14 @@ void GLSpriteBatch::draw(const Texture& texture, const SpriteData& data) {
 
     glm::vec4 color(data.color.r, data.color.g, data.color.b, data.color.a);
 
-    // 添加四个顶点（翻转Y轴纹理坐标，因为OpenGL纹理原点在左下角）
-    Vertex v0{ transform(0, 0), glm::vec2(data.texCoordMin.x, data.texCoordMax.y), color };
-    Vertex v1{ transform(data.size.x, 0), glm::vec2(data.texCoordMax.x, data.texCoordMax.y), color };
-    Vertex v2{ transform(data.size.x, data.size.y), glm::vec2(data.texCoordMax.x, data.texCoordMin.y), color };
-    Vertex v3{ transform(0, data.size.y), glm::vec2(data.texCoordMin.x, data.texCoordMin.y), color };
+    // 添加四个顶点（屏幕坐标系：Y轴向下，OpenGL纹理坐标：Y轴向上）
+    // v0 -- v1
+    // |     |
+    // v3 -- v2
+    Vertex v0{ transform(0, 0), glm::vec2(data.texCoordMin.x, data.texCoordMin.y), color };
+    Vertex v1{ transform(data.size.x, 0), glm::vec2(data.texCoordMax.x, data.texCoordMin.y), color };
+    Vertex v2{ transform(data.size.x, data.size.y), glm::vec2(data.texCoordMax.x, data.texCoordMax.y), color };
+    Vertex v3{ transform(0, data.size.y), glm::vec2(data.texCoordMin.x, data.texCoordMax.y), color };
 
     vertices_.push_back(v0);
     vertices_.push_back(v1);

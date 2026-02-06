@@ -72,10 +72,11 @@ glm::mat4 Camera::getProjectionMatrix() const {
     if (projDirty_) {
         // 对于2D游戏，Y轴向下增长（屏幕坐标系）
         // OpenGL默认Y轴向上，所以需要反转Y轴
-        // left, right, bottom, top
+        // glm::ortho(left, right, bottom, top)
+        // 为了Y轴向下：传入 (bottom=height, top=0)，这样Y轴翻转
         projMatrix_ = glm::ortho(
             left_, right_,     // X轴：从左到右
-            top_, bottom_,     // Y轴：从上到下（反转）
+            bottom_, top_,     // Y轴：从下到上（传入bottom>top，实现Y轴向下增长）
             -1.0f, 1.0f
         );
         projDirty_ = false;
@@ -90,26 +91,13 @@ glm::mat4 Camera::getViewProjectionMatrix() const {
 }
 
 Vec2 Camera::screenToWorld(const Vec2& screenPos) const {
-    glm::vec4 clipPos(
-        (screenPos.x - left_) / (right_ - left_) * 2.0f - 1.0f,
-        1.0f - (screenPos.y - top_) / (bottom_ - top_) * 2.0f,
-        0.0f, 1.0f
-    );
-    
-    glm::mat4 invVP = glm::inverse(getViewProjectionMatrix());
-    glm::vec4 worldPos = invVP * clipPos;
-    
-    return Vec2(worldPos.x, worldPos.y);
+    // 屏幕坐标直接映射到世界坐标（在2D中通常相同）
+    return screenPos;
 }
 
 Vec2 Camera::worldToScreen(const Vec2& worldPos) const {
-    glm::vec4 world(worldPos.x, worldPos.y, 0.0f, 1.0f);
-    glm::vec4 clipPos = getViewProjectionMatrix() * world;
-    
-    return Vec2(
-        (clipPos.x + 1.0f) * 0.5f * (right_ - left_) + left_,
-        (1.0f - clipPos.y) * 0.5f * (bottom_ - top_) + top_
-    );
+    // 世界坐标直接映射到屏幕坐标（在2D中通常相同）
+    return worldPos;
 }
 
 Vec2 Camera::screenToWorld(float x, float y) const {

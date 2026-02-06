@@ -335,13 +335,15 @@ void GLRenderer::drawText(const FontAtlas& font, const String& text, const Vec2&
 void GLRenderer::drawText(const FontAtlas& font, const String& text, float x, float y, const Color& color) {
     float cursorX = x;
     float cursorY = y;
-    float lineBottomY = cursorY + (font.getAscent() - font.getDescent());
+    // 在屏幕坐标系中，Y轴向下，基线在字形下方
+    // ascent是正值（向上），descent是负值（向下）
+    float baselineY = cursorY + font.getAscent();
     
     for (char32_t codepoint : text.toUtf32()) {
         if (codepoint == '\n') {
             cursorX = x;
             cursorY += font.getLineHeight();
-            lineBottomY = cursorY + (font.getAscent() - font.getDescent());
+            baselineY = cursorY + font.getAscent();
             continue;
         }
         
@@ -354,8 +356,11 @@ void GLRenderer::drawText(const FontAtlas& font, const String& text, float x, fl
                 continue;
             }
 
+            // 字形位置计算
+            // bearingX: 水平偏移
+            // bearingY: 垂直偏移（负值表示在基线上方）
             float xPos = penX + glyph->bearingX;
-            float yPos = lineBottomY - (glyph->bearingY + glyph->height);
+            float yPos = baselineY + glyph->bearingY;
             
             Rect destRect(xPos, yPos, glyph->width, glyph->height);
             float texW = static_cast<float>(font.getTexture()->getWidth());

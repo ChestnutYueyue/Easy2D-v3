@@ -70,8 +70,32 @@ bool Application::init(const AppConfig& config) {
     timerManager_ = makeUnique<TimerManager>();
     eventQueue_ = makeUnique<EventQueue>();
     eventDispatcher_ = makeUnique<EventDispatcher>();
-    camera_ = makeUnique<Camera>(0, static_cast<float>(config.width),
-                                  static_cast<float>(config.height), 0);
+    camera_ = makeUnique<Camera>(0, static_cast<float>(window_->getWidth()),
+                                  static_cast<float>(window_->getHeight()), 0);
+
+    // 设置窗口大小改变回调
+    window_->setResizeCallback([this](int width, int height) {
+        // 获取 DPI 缩放比例
+        float scaleX = window_->getContentScaleX();
+        float scaleY = window_->getContentScaleY();
+        
+        // 更新相机视口（使用逻辑尺寸，渲染时会自动处理 DPI 缩放）
+        if (camera_) {
+            camera_->setViewport(0, static_cast<float>(width),
+                                 static_cast<float>(height), 0);
+        }
+        // 更新当前场景的视口
+        if (sceneManager_) {
+            auto currentScene = sceneManager_->getCurrentScene();
+            if (currentScene) {
+                currentScene->setViewportSize(static_cast<float>(width),
+                                              static_cast<float>(height));
+            }
+        }
+        
+        E2D_LOG_INFO("Window resized: {}x{} (DPI scale: {:.2f}x{:.2f})", 
+                     width, height, scaleX, scaleY);
+    });
 
     // 初始化音频引擎
     AudioEngine::getInstance().initialize();
@@ -212,7 +236,9 @@ void Application::update() {
 void Application::render() {
     if (!renderer_) return;
 
-    // 设置视口
+    // 设置视口 - 使用窗口逻辑尺寸
+    // 注意：OpenGL视口原点在左下角，但我们的相机使用屏幕坐标系（原点在左上角）
+    // 所以视口的y坐标需要翻转
     renderer_->setViewport(0, 0, window_->getWidth(), window_->getHeight());
 
     // 渲染场景
@@ -262,9 +288,9 @@ void Application::enterScene(Ptr<Scene> scene) {
 
 void Application::enterScene(Ptr<Scene> scene, Ptr<class Transition> transition) {
     if (sceneManager_ && scene) {
-        // 设置场景的视口大小
-        scene->setViewportSize(static_cast<float>(config_.width),
-                               static_cast<float>(config_.height));
+        // 设置场景的视口大小（使用实际窗口尺寸）
+        scene->setViewportSize(static_cast<float>(window_->getWidth()),
+                               static_cast<float>(window_->getHeight()));
         sceneManager_->enterScene(scene, transition);
     }
 }

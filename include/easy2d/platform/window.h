@@ -61,6 +61,11 @@ public:
     bool isFullscreen() const { return fullscreen_; }
     bool isVSync() const { return vsync_; }
 
+    // DPI 缩放支持
+    float getContentScaleX() const;
+    float getContentScaleY() const;
+    Vec2 getContentScale() const;
+
     // 窗口状态
     bool isFocused() const;
     bool isMinimized() const;
