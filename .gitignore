@@ -1,0 +1,26 @@
+Win32/
+x64/
+Debug/
+Release/
+.xmake/
+.vscode/
+.trae/
+.cache/
+.claude/
+examples/
+FlappyBird/
+docs/
+build/
+output/
+build-win7/
+output-win7/
+logs/
+# vs2010
+ipch/
+*.opensdf
+*.sdf
+*.suo
+*.json
+*.user
+*.lnk
+.vs

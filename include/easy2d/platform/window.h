@@ -1,0 +1,110 @@
+#pragma once
+
+#include <easy2d/core/types.h>
+#include <easy2d/core/string.h>
+#include <easy2d/core/math_types.h>
+#include <functional>
+
+struct GLFWwindow;
+
+namespace easy2d {
+
+// 前向声明
+class EventQueue;
+class Input;
+
+// ============================================================================
+// 窗口配置
+// ============================================================================
+struct WindowConfig {
+    String title = "Easy2D Application";
+    int width = 800;
+    int height = 600;
+    bool fullscreen = false;
+    bool resizable = true;
+    bool vsync = true;
+    int msaaSamples = 0;
+};
+
+// ============================================================================
+// Window 类 - GLFW 封装
+// ============================================================================
+class Window {
+public:
+    Window();
+    ~Window();
+
+    // 创建窗口
+    bool create(const WindowConfig& config);
+    void destroy();
+
+    // 窗口操作
+    void pollEvents();
+    void swapBuffers();
+    bool shouldClose() const;
+    void setShouldClose(bool close);
+
+    // 窗口属性
+    void setTitle(const String& title);
+    void setSize(int width, int height);
+    void setPosition(int x, int y);
+    void setFullscreen(bool fullscreen);
+    void setVSync(bool enabled);
+    void setResizable(bool resizable);
+
+    // 获取窗口属性
+    int getWidth() const { return width_; }
+    int getHeight() const { return height_; }
+    Size getSize() const { return Size(static_cast<float>(width_), static_cast<float>(height_)); }
+    Vec2 getPosition() const;
+    bool isFullscreen() const { return fullscreen_; }
+    bool isVSync() const { return vsync_; }
+
+    // 窗口状态
+    bool isFocused() const;
+    bool isMinimized() const;
+    bool isMaximized() const;
+
+    // 获取原生句柄
+    GLFWwindow* getNativeHandle() const { return window_; }
+
+    // 设置/获取用户数据
+    void setUserData(void* data) { userData_ = data; }
+    void* getUserData() const { return userData_; }
+
+    // 事件队列
+    void setEventQueue(EventQueue* queue) { eventQueue_ = queue; }
+    EventQueue* getEventQueue() const { return eventQueue_; }
+
+    // 获取输入管理器
+    Input* getInput() const { return input_.get(); }
+
+    // 窗口回调
+    using ResizeCallback = std::function<void(int width, int height)>;
+    using FocusCallback = std::function<void(bool focused)>;
+    using CloseCallback = std::function<void()>;
+
+    void setResizeCallback(ResizeCallback callback) { resizeCallback_ = callback; }
+    void setFocusCallback(FocusCallback callback) { focusCallback_ = callback; }
+    void setCloseCallback(CloseCallback callback) { closeCallback_ = callback; }
+
+private:
+    GLFWwindow* window_;
+    int width_;
+    int height_;
+    bool fullscreen_;
+    bool vsync_;
+    void* userData_;
+    EventQueue* eventQueue_;
+    UniquePtr<Input> input_;
+
+    ResizeCallback resizeCallback_;
+    FocusCallback focusCallback_;
+    CloseCallback closeCallback_;
+
+    static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+    static void windowFocusCallback(GLFWwindow* window, int focused);
+    static void windowCloseCallback(GLFWwindow* window);
+};
+
+} // namespace easy2d

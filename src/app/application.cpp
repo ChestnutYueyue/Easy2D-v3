@@ -217,7 +217,7 @@ void Application::mainLoop() {
     if (multiThreadedRendering_ && renderThread_) {
         // 多线程模式：准备帧数据并提交到渲染线程
         prepareFrameData();
-        renderThread_->submitFrame(*frameDataBuffer_->getReadBuffer());
+        renderThread_->submitFrame(*frameDataBuffer_->getWriteBuffer());
         frameDataBuffer_->swap();
     } else {
         // 单线程模式：直接渲染
