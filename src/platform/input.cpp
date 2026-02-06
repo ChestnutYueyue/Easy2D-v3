@@ -1,4 +1,5 @@
 #include <easy2d/platform/input.h>
+#include <easy2d/platform/glfw_user_pointer.h>
 #include <GLFW/glfw3.h>
 
 namespace easy2d {
@@ -22,10 +23,7 @@ Input::~Input() {
 
 void Input::init(GLFWwindow* window) {
     window_ = window;
-    
-    // 设置用户指针，以便在回调中访问 Input 实例
-    glfwSetWindowUserPointer(window_, this);
-    
+
     // 设置滚动回调
     glfwSetScrollCallback(window_, scrollCallback);
     
@@ -170,8 +168,8 @@ bool Input::isAnyMouseDown() const {
 }
 
 void Input::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
-    // 通过 GLFW 用户指针获取 Input 实例
-    Input* input = static_cast<Input*>(glfwGetWindowUserPointer(window));
+    auto* ctx = static_cast<GlfwUserPointer*>(glfwGetWindowUserPointer(window));
+    Input* input = ctx ? ctx->input : nullptr;
     if (input) {
         input->mouseScroll_ += static_cast<float>(yoffset);
     }

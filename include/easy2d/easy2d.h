@@ -28,6 +28,10 @@
 #include <easy2d/scene/scene_manager.h>
 #include <easy2d/scene/transition.h>
 
+// UI
+#include <easy2d/ui/widget.h>
+#include <easy2d/ui/button.h>
+
 // Action
 #include <easy2d/action/action.h>
 #include <easy2d/action/actions.h>
@@ -60,4 +64,3 @@
 
 // Application
 #include <easy2d/app/application.h>
-

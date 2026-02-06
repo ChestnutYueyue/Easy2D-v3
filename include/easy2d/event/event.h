@@ -30,6 +30,13 @@ enum class EventType {
     MouseButtonReleased,
     MouseMoved,
     MouseScrolled,
+
+    // UI 事件
+    UIHoverEnter,
+    UIHoverExit,
+    UIPressed,
+    UIReleased,
+    UIClicked,
     
     // 游戏手柄事件
     GamepadConnected,

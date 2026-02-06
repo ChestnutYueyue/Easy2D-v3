@@ -2,10 +2,52 @@
 #include <easy2d/scene/transition.h>
 #include <easy2d/graphics/render_backend.h>
 #include <easy2d/graphics/render_command.h>
+#include <easy2d/app/application.h>
+#include <easy2d/platform/input.h>
 #include <easy2d/utils/logger.h>
 #include <algorithm>
 
 namespace easy2d {
+
+namespace {
+
+Node* hitTestTopmost(const Ptr<Node>& node, const Vec2& worldPos) {
+    if (!node || !node->isVisible()) {
+        return nullptr;
+    }
+
+    std::vector<Ptr<Node>> children = node->getChildren();
+    std::stable_sort(children.begin(), children.end(),
+        [](const Ptr<Node>& a, const Ptr<Node>& b) {
+            return a->getZOrder() < b->getZOrder();
+        });
+
+    for (auto it = children.rbegin(); it != children.rend(); ++it) {
+        if (Node* hit = hitTestTopmost(*it, worldPos)) {
+            return hit;
+        }
+    }
+
+    if (node->getEventDispatcher().getTotalListenerCount() == 0) {
+        return nullptr;
+    }
+
+    Rect bounds = node->getBoundingBox();
+    if (!bounds.empty() && bounds.containsPoint(worldPos)) {
+        return node.get();
+    }
+
+    return nullptr;
+}
+
+void dispatchToNode(Node* node, Event& event) {
+    if (!node) {
+        return;
+    }
+    node->getEventDispatcher().dispatch(event);
+}
+
+} // namespace
 
 SceneManager& SceneManager::getInstance() {
     static SceneManager instance;
@@ -68,8 +110,28 @@ void SceneManager::enterScene(Ptr<Scene> scene, Ptr<class Transition> transition
     
     if (transition) {
         transition->start(getCurrentScene(), scene);
-        // TODO: 处理过渡效果
-        enterScene(scene);
+        outgoingScene_ = getCurrentScene();
+        incomingScene_ = scene;
+        activeTransition_ = transition;
+        currentTransition_ = TransitionType::None;
+        isTransitioning_ = true;
+        transitionStackAction_ = [this]() {
+            auto outgoing = outgoingScene_;
+            auto incoming = incomingScene_;
+            if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
+                outgoing->onExit();
+                outgoing->onDetachFromScene();
+                sceneStack_.pop();
+            }
+            if (incoming) {
+                sceneStack_.push(incoming);
+            }
+        };
+
+        if (incomingScene_ && !incomingScene_->isRunning()) {
+            incomingScene_->onEnter();
+            incomingScene_->onAttachToScene(incomingScene_.get());
+        }
     } else {
         enterScene(scene);
     }
@@ -85,7 +147,18 @@ void SceneManager::replaceScene(Ptr<Scene> scene, TransitionType transition, flo
         return;
     }
     
-    startTransition(sceneStack_.top(), scene, transition, duration);
+    startTransition(sceneStack_.top(), scene, transition, duration, [this]() {
+        auto outgoing = outgoingScene_;
+        auto incoming = incomingScene_;
+        if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
+            outgoing->onExit();
+            outgoing->onDetachFromScene();
+            sceneStack_.pop();
+        }
+        if (incoming) {
+            sceneStack_.push(incoming);
+        }
+    });
 }
 
 void SceneManager::pushScene(Ptr<Scene> scene) {
@@ -114,7 +187,15 @@ void SceneManager::pushScene(Ptr<Scene> scene, TransitionType transition, float 
         return;
     }
     
-    startTransition(sceneStack_.top(), scene, transition, duration);
+    if (!sceneStack_.empty()) {
+        sceneStack_.top()->pause();
+    }
+
+    startTransition(sceneStack_.top(), scene, transition, duration, [this]() {
+        if (incomingScene_) {
+            sceneStack_.push(incomingScene_);
+        }
+    });
 }
 
 void SceneManager::popScene() {
@@ -139,11 +220,19 @@ void SceneManager::popScene(TransitionType transition, float duration) {
     }
     
     auto current = sceneStack_.top();
-    sceneStack_.pop();
-    auto previous = sceneStack_.top();
-    sceneStack_.push(current);  // Put it back temporarily
-    
-    startTransition(current, previous, transition, duration);
+    auto previous = getPreviousScene();
+    startTransition(current, previous, transition, duration, [this]() {
+        auto outgoing = outgoingScene_;
+        auto incoming = incomingScene_;
+        if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
+            outgoing->onExit();
+            outgoing->onDetachFromScene();
+            sceneStack_.pop();
+        }
+        if (!sceneStack_.empty() && incoming && sceneStack_.top() == incoming) {
+            incoming->resume();
+        }
+    });
 }
 
 void SceneManager::popToRootScene() {
@@ -168,22 +257,18 @@ void SceneManager::popToRootScene(TransitionType transition, float duration) {
         return;
     }
     
-    // Find root scene
-    std::stack<Ptr<Scene>> tempStack;
-    while (sceneStack_.size() > 1) {
-        tempStack.push(sceneStack_.top());
-        sceneStack_.pop();
-    }
-    
-    auto root = sceneStack_.top();
-    
-    // Put scenes back
-    while (!tempStack.empty()) {
-        sceneStack_.push(tempStack.top());
-        tempStack.pop();
-    }
-    
-    startTransition(sceneStack_.top(), root, transition, duration);
+    auto root = getRootScene();
+    startTransition(sceneStack_.top(), root, transition, duration, [this, root]() {
+        while (!sceneStack_.empty() && sceneStack_.top() != root) {
+            auto scene = sceneStack_.top();
+            scene->onExit();
+            scene->onDetachFromScene();
+            sceneStack_.pop();
+        }
+        if (!sceneStack_.empty()) {
+            sceneStack_.top()->resume();
+        }
+    });
 }
 
 void SceneManager::popToScene(const std::string& name) {
@@ -218,7 +303,17 @@ void SceneManager::popToScene(const std::string& name, TransitionType transition
     
     auto target = getSceneByName(name);
     if (target && target != sceneStack_.top()) {
-        startTransition(sceneStack_.top(), target, transition, duration);
+        startTransition(sceneStack_.top(), target, transition, duration, [this, target]() {
+            while (!sceneStack_.empty() && sceneStack_.top() != target) {
+                auto scene = sceneStack_.top();
+                scene->onExit();
+                scene->onDetachFromScene();
+                sceneStack_.pop();
+            }
+            if (!sceneStack_.empty()) {
+                sceneStack_.top()->resume();
+            }
+        });
     }
 }
 
@@ -281,25 +376,39 @@ bool SceneManager::hasScene(const std::string& name) const {
 void SceneManager::update(float dt) {
     if (isTransitioning_) {
         updateTransition(dt);
+        hoverTarget_ = nullptr;
+        captureTarget_ = nullptr;
+        hasLastPointerWorld_ = false;
     }
     
     if (!sceneStack_.empty()) {
-        sceneStack_.top()->updateScene(dt);
+        auto& scene = *sceneStack_.top();
+        scene.updateScene(dt);
+        if (!isTransitioning_) {
+            dispatchPointerEvents(scene);
+        }
     }
 }
 
 void SceneManager::render(RenderBackend& renderer) {
-    if (isTransitioning_ && outgoingScene_) {
-        // During transition, render both scenes
-        outgoingScene_->renderScene(renderer);
-        // For simple fade effect, we could blend incoming over outgoing
-        // For now, just render incoming
-        if (incomingScene_) {
-            incomingScene_->renderScene(renderer);
+    Color clearColor = Colors::Black;
+    if (isTransitioning_) {
+        if (outgoingScene_) {
+            clearColor = outgoingScene_->getBackgroundColor();
+        } else if (incomingScene_) {
+            clearColor = incomingScene_->getBackgroundColor();
         }
     } else if (!sceneStack_.empty()) {
-        sceneStack_.top()->renderScene(renderer);
+        clearColor = sceneStack_.top()->getBackgroundColor();
     }
+
+    renderer.beginFrame(clearColor);
+    if (isTransitioning_ && activeTransition_) {
+        activeTransition_->render(renderer);
+    } else if (!sceneStack_.empty()) {
+        sceneStack_.top()->renderContent(renderer);
+    }
+    renderer.endFrame();
 }
 
 void SceneManager::collectRenderCommands(std::vector<RenderCommand>& commands) {
@@ -328,74 +437,171 @@ void SceneManager::purgeCachedScenes() {
     namedScenes_.clear();
 }
 
-void SceneManager::startTransition(Ptr<Scene> from, Ptr<Scene> to, TransitionType type, float duration) {
+void SceneManager::startTransition(Ptr<Scene> from, Ptr<Scene> to, TransitionType type, float duration, Function<void()> stackAction) {
+    if (!from || !to) {
+        return;
+    }
+
+    Ptr<Transition> transition;
+    switch (type) {
+        case TransitionType::Fade:
+            transition = makePtr<FadeTransition>(duration);
+            break;
+        case TransitionType::SlideLeft:
+            transition = makePtr<SlideTransition>(duration, TransitionDirection::Left);
+            break;
+        case TransitionType::SlideRight:
+            transition = makePtr<SlideTransition>(duration, TransitionDirection::Right);
+            break;
+        case TransitionType::SlideUp:
+            transition = makePtr<SlideTransition>(duration, TransitionDirection::Up);
+            break;
+        case TransitionType::SlideDown:
+            transition = makePtr<SlideTransition>(duration, TransitionDirection::Down);
+            break;
+        case TransitionType::Scale:
+            transition = makePtr<ScaleTransition>(duration);
+            break;
+        case TransitionType::Flip:
+            transition = makePtr<FlipTransition>(duration);
+            break;
+        default:
+            transition = makePtr<FadeTransition>(duration);
+            break;
+    }
+
+    transition->start(from, to);
+
     isTransitioning_ = true;
     currentTransition_ = type;
     transitionDuration_ = duration;
     transitionElapsed_ = 0.0f;
     outgoingScene_ = from;
     incomingScene_ = to;
+    activeTransition_ = transition;
+    transitionStackAction_ = std::move(stackAction);
+
+    if (incomingScene_ && !incomingScene_->isRunning()) {
+        incomingScene_->onEnter();
+        incomingScene_->onAttachToScene(incomingScene_.get());
+    }
 }
 
 void SceneManager::updateTransition(float dt) {
     transitionElapsed_ += dt;
-    
-    float progress = transitionDuration_ > 0.0f 
-        ? std::min(1.0f, transitionElapsed_ / transitionDuration_) 
-        : 1.0f;
-    
-    // Apply transition effect based on type
-    switch (currentTransition_) {
-        case TransitionType::Fade:
-            // Fade effect logic would go here
-            break;
-        case TransitionType::SlideLeft:
-        case TransitionType::SlideRight:
-        case TransitionType::SlideUp:
-        case TransitionType::SlideDown:
-            // Slide effect logic would go here
-            break;
-        case TransitionType::Scale:
-            // Scale effect logic would go here
-            break;
-        case TransitionType::Flip:
-            // Flip effect logic would go here
-            break;
-        default:
-            break;
-    }
-    
-    if (progress >= 1.0f) {
+
+    if (activeTransition_) {
+        activeTransition_->update(dt);
+        if (activeTransition_->isFinished()) {
+            finishTransition();
+        }
+    } else {
         finishTransition();
     }
 }
 
 void SceneManager::finishTransition() {
     isTransitioning_ = false;
-    
-    if (outgoingScene_) {
-        outgoingScene_->onExit();
-        outgoingScene_->onDetachFromScene();
-        
-        // Remove outgoing from stack if needed
-        if (!sceneStack_.empty() && sceneStack_.top() == outgoingScene_) {
-            sceneStack_.pop();
-        }
+    hoverTarget_ = nullptr;
+    captureTarget_ = nullptr;
+    hasLastPointerWorld_ = false;
+
+    if (transitionStackAction_) {
+        transitionStackAction_();
     }
-    
-    if (incomingScene_) {
-        incomingScene_->onEnter();
-        incomingScene_->onAttachToScene(incomingScene_.get());
-        sceneStack_.push(incomingScene_);
-    }
-    
+
     outgoingScene_.reset();
     incomingScene_.reset();
+    activeTransition_.reset();
+    transitionStackAction_ = nullptr;
     
     if (transitionCallback_) {
         transitionCallback_();
         transitionCallback_ = nullptr;
     }
+}
+
+void SceneManager::dispatchPointerEvents(Scene& scene) {
+    auto& input = Application::instance().input();
+    Vec2 screenPos = input.getMousePosition();
+
+    Vec2 worldPos = screenPos;
+    if (auto* camera = scene.getActiveCamera()) {
+        worldPos = camera->screenToWorld(screenPos);
+    }
+
+    Ptr<Node> root = scene.shared_from_this();
+    Node* newHover = hitTestTopmost(root, worldPos);
+
+    if (newHover != hoverTarget_) {
+        if (hoverTarget_) {
+            Event evt;
+            evt.type = EventType::UIHoverExit;
+            evt.data = CustomEvent{0, hoverTarget_};
+            dispatchToNode(hoverTarget_, evt);
+        }
+        hoverTarget_ = newHover;
+        if (hoverTarget_) {
+            Event evt;
+            evt.type = EventType::UIHoverEnter;
+            evt.data = CustomEvent{0, hoverTarget_};
+            dispatchToNode(hoverTarget_, evt);
+        }
+    }
+
+    if (!hasLastPointerWorld_) {
+        lastPointerWorld_ = worldPos;
+        hasLastPointerWorld_ = true;
+    }
+
+    Vec2 delta = worldPos - lastPointerWorld_;
+    if (hoverTarget_ && (delta.x != 0.0f || delta.y != 0.0f)) {
+        Event evt = Event::createMouseMove(worldPos, delta);
+        dispatchToNode(hoverTarget_, evt);
+    }
+
+    float scrollDelta = input.getMouseScrollDelta();
+    if (hoverTarget_ && scrollDelta != 0.0f) {
+        Event evt = Event::createMouseScroll(Vec2(0.0f, scrollDelta), worldPos);
+        dispatchToNode(hoverTarget_, evt);
+    }
+
+    if (input.isMousePressed(MouseButton::Left)) {
+        captureTarget_ = hoverTarget_;
+        if (captureTarget_) {
+            Event evt = Event::createMouseButtonPress(static_cast<int>(MouseButton::Left), 0, worldPos);
+            dispatchToNode(captureTarget_, evt);
+
+            Event pressed;
+            pressed.type = EventType::UIPressed;
+            pressed.data = CustomEvent{0, captureTarget_};
+            dispatchToNode(captureTarget_, pressed);
+        }
+    }
+
+    if (input.isMouseReleased(MouseButton::Left)) {
+        Node* target = captureTarget_ ? captureTarget_ : hoverTarget_;
+        if (target) {
+            Event evt = Event::createMouseButtonRelease(static_cast<int>(MouseButton::Left), 0, worldPos);
+            dispatchToNode(target, evt);
+
+            Event released;
+            released.type = EventType::UIReleased;
+            released.data = CustomEvent{0, target};
+            dispatchToNode(target, released);
+        }
+
+        if (captureTarget_ && captureTarget_ == hoverTarget_) {
+            Event clicked;
+            clicked.type = EventType::UIClicked;
+            clicked.data = CustomEvent{0, captureTarget_};
+            dispatchToNode(captureTarget_, clicked);
+        }
+
+        captureTarget_ = nullptr;
+    }
+
+    lastPointerWorld_ = worldPos;
 }
 
 } // namespace easy2d

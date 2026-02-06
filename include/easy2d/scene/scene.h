@@ -56,6 +56,7 @@ public:
     // 渲染和更新
     // ------------------------------------------------------------------------
     void renderScene(RenderBackend& renderer);
+    void renderContent(RenderBackend& renderer);
     void updateScene(float dt);
     void collectRenderCommands(std::vector<RenderCommand>& commands);
 

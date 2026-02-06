@@ -12,6 +12,7 @@ namespace easy2d {
 
 // 前向声明
 struct RenderCommand;
+class Transition;
 
 // ============================================================================
 // 场景切换特效类型
@@ -114,9 +115,10 @@ public:
 
 private:
     void doSceneSwitch();
-    void startTransition(Ptr<Scene> from, Ptr<Scene> to, TransitionType type, float duration);
+    void startTransition(Ptr<Scene> from, Ptr<Scene> to, TransitionType type, float duration, Function<void()> stackAction);
     void updateTransition(float dt);
     void finishTransition();
+    void dispatchPointerEvents(Scene& scene);
 
     std::stack<Ptr<Scene>> sceneStack_;
     std::unordered_map<std::string, Ptr<Scene>> namedScenes_;
@@ -128,11 +130,18 @@ private:
     float transitionElapsed_ = 0.0f;
     Ptr<Scene> outgoingScene_;
     Ptr<Scene> incomingScene_;
+    Ptr<Transition> activeTransition_;
+    Function<void()> transitionStackAction_;
     TransitionCallback transitionCallback_;
     
     // Next scene to switch to (queued during transition)
     Ptr<Scene> nextScene_;
     bool sendCleanupToScene_ = false;
+
+    Node* hoverTarget_ = nullptr;
+    Node* captureTarget_ = nullptr;
+    Vec2 lastPointerWorld_ = Vec2::Zero();
+    bool hasLastPointerWorld_ = false;
 };
 
 } // namespace easy2d

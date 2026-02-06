@@ -32,24 +32,21 @@ void Scene::renderScene(RenderBackend& renderer) {
     
     // Begin frame with background color
     renderer.beginFrame(backgroundColor_);
-    
-    // Set view-projection matrix from camera
+    renderContent(renderer);
+    renderer.endFrame();
+}
+
+void Scene::renderContent(RenderBackend& renderer) {
+    if (!isVisible()) return;
+
     Camera* activeCam = getActiveCamera();
     if (activeCam) {
         renderer.setViewProjection(activeCam->getViewProjectionMatrix());
     }
-    
-    // Begin sprite batch
+
     renderer.beginSpriteBatch();
-    
-    // Render all children
     render(renderer);
-    
-    // End sprite batch
     renderer.endSpriteBatch();
-    
-    // End frame
-    renderer.endFrame();
 }
 
 void Scene::updateScene(float dt) {

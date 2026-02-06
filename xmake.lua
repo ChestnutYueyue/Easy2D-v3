@@ -168,3 +168,23 @@ target("collision_test")
     add_deps("easy2d")
     set_targetdir("$(builddir)/bin")
 target_end()
+
+-- ==============================================
+-- 7. UI 按钮示例
+-- ==============================================
+target("ui_button_demo")
+    set_kind("binary")
+    add_files("examples/ui_button_demo/**.cpp")
+    add_deps("easy2d")
+    set_targetdir("$(builddir)/bin")
+target_end()
+
+-- ==============================================
+-- 8. 转场示例
+-- ==============================================
+target("transition_demo")
+    set_kind("binary")
+    add_files("examples/transition_demo/**.cpp")
+    add_deps("easy2d")
+    set_targetdir("$(builddir)/bin")
+target_end()

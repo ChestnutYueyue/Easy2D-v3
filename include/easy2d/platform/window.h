@@ -12,6 +12,7 @@ namespace easy2d {
 // 前向声明
 class EventQueue;
 class Input;
+struct GlfwUserPointer;
 
 // ============================================================================
 // 窗口配置
@@ -97,6 +98,7 @@ private:
     void* userData_;
     EventQueue* eventQueue_;
     UniquePtr<Input> input_;
+    UniquePtr<GlfwUserPointer> glfwUserPointer_;
 
     ResizeCallback resizeCallback_;
     FocusCallback focusCallback_;

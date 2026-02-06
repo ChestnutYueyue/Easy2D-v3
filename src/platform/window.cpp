@@ -1,5 +1,6 @@
 #include <easy2d/platform/window.h>
 #include <easy2d/platform/input.h>
+#include <easy2d/platform/glfw_user_pointer.h>
 #include <easy2d/event/event_queue.h>
 #include <easy2d/utils/logger.h>
 #include <GLFW/glfw3.h>
@@ -61,7 +62,9 @@ bool Window::create(const WindowConfig& config) {
     glfwSwapInterval(vsync_ ? 1 : 0);
 
     // 设置用户指针
-    glfwSetWindowUserPointer(window_, this);
+    glfwUserPointer_ = makeUnique<GlfwUserPointer>();
+    glfwUserPointer_->window = this;
+    glfwSetWindowUserPointer(window_, glfwUserPointer_.get());
 
     // 设置回调
     glfwSetFramebufferSizeCallback(window_, framebufferSizeCallback);
@@ -71,6 +74,7 @@ bool Window::create(const WindowConfig& config) {
     // 创建输入管理器
     input_ = makeUnique<Input>();
     input_->init(window_);
+    glfwUserPointer_->input = input_.get();
 
     E2D_LOG_INFO("Window created: {}x{}", width_, height_);
     return true;
@@ -79,6 +83,8 @@ bool Window::create(const WindowConfig& config) {
 void Window::destroy() {
     if (window_) {
         input_.reset();
+        glfwSetWindowUserPointer(window_, nullptr);
+        glfwUserPointer_.reset();
         glfwDestroyWindow(window_);
         window_ = nullptr;
         E2D_LOG_INFO("Window destroyed");
@@ -179,7 +185,8 @@ bool Window::isMaximized() const {
 }
 
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
-    Window* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    auto* ctx = static_cast<GlfwUserPointer*>(glfwGetWindowUserPointer(window));
+    Window* self = ctx ? ctx->window : nullptr;
     if (self) {
         self->width_ = width;
         self->height_ = height;
@@ -190,14 +197,16 @@ void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) 
 }
 
 void Window::windowFocusCallback(GLFWwindow* window, int focused) {
-    Window* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    auto* ctx = static_cast<GlfwUserPointer*>(glfwGetWindowUserPointer(window));
+    Window* self = ctx ? ctx->window : nullptr;
     if (self && self->focusCallback_) {
         self->focusCallback_(focused == GLFW_TRUE);
     }
 }
 
 void Window::windowCloseCallback(GLFWwindow* window) {
-    Window* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
+    auto* ctx = static_cast<GlfwUserPointer*>(glfwGetWindowUserPointer(window));
+    Window* self = ctx ? ctx->window : nullptr;
     if (self && self->closeCallback_) {
         self->closeCallback_();
     }

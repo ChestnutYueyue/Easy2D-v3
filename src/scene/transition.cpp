@@ -2,6 +2,7 @@
 #include <easy2d/graphics/render_backend.h>
 #include <easy2d/graphics/camera.h>
 #include <easy2d/core/math_types.h>
+#include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
 
 namespace easy2d {
@@ -83,14 +84,39 @@ FadeTransition::FadeTransition(float duration)
 }
 
 void FadeTransition::onRenderTransition(RenderBackend& renderer, float progress) {
-    // 渲染源场景（淡出）
+    float screenWidth = 800.0f;
+    float screenHeight = 600.0f;
+
     if (outgoingScene_) {
-        outgoingScene_->renderScene(renderer);
+        Size viewportSize = outgoingScene_->getViewportSize();
+        if (viewportSize.width > 0 && viewportSize.height > 0) {
+            screenWidth = viewportSize.width;
+            screenHeight = viewportSize.height;
+        }
+    } else if (incomingScene_) {
+        Size viewportSize = incomingScene_->getViewportSize();
+        if (viewportSize.width > 0 && viewportSize.height > 0) {
+            screenWidth = viewportSize.width;
+            screenHeight = viewportSize.height;
+        }
     }
-    
-    // 渲染目标场景（淡入）
-    if (incomingScene_) {
-        incomingScene_->renderScene(renderer);
+
+    glm::mat4 overlayVP = glm::ortho(0.0f, screenWidth, screenHeight, 0.0f, -1.0f, 1.0f);
+
+    if (progress < 0.5f) {
+        if (outgoingScene_) {
+            outgoingScene_->renderContent(renderer);
+        }
+        float a = std::clamp(progress * 2.0f, 0.0f, 1.0f);
+        renderer.setViewProjection(overlayVP);
+        renderer.fillRect(Rect(0.0f, 0.0f, screenWidth, screenHeight), Color(0.0f, 0.0f, 0.0f, a));
+    } else {
+        if (incomingScene_) {
+            incomingScene_->renderContent(renderer);
+        }
+        float a = std::clamp((1.0f - progress) * 2.0f, 0.0f, 1.0f);
+        renderer.setViewProjection(overlayVP);
+        renderer.fillRect(Rect(0.0f, 0.0f, screenWidth, screenHeight), Color(0.0f, 0.0f, 0.0f, a));
     }
 }
 
@@ -143,16 +169,20 @@ void SlideTransition::onRenderTransition(RenderBackend& renderer, float progress
         
         // 保存原始相机位置
         Camera* camera = outgoingScene_->getActiveCamera();
-        Vec2 originalPos = camera->getPosition();
+        Vec2 originalPos = camera ? camera->getPosition() : Vec2::Zero();
         
         // 应用偏移
-        camera->setPosition(originalPos.x + offsetX, originalPos.y + offsetY);
+        if (camera) {
+            camera->setPosition(originalPos.x + offsetX, originalPos.y + offsetY);
+        }
         
         // 渲染场景
-        outgoingScene_->renderScene(renderer);
+        outgoingScene_->renderContent(renderer);
         
         // 恢复相机位置
-        camera->setPosition(originalPos);
+        if (camera) {
+            camera->setPosition(originalPos);
+        }
     }
     
     // 渲染目标场景（滑入）
@@ -177,16 +207,20 @@ void SlideTransition::onRenderTransition(RenderBackend& renderer, float progress
         
         // 保存原始相机位置
         Camera* camera = incomingScene_->getActiveCamera();
-        Vec2 originalPos = camera->getPosition();
+        Vec2 originalPos = camera ? camera->getPosition() : Vec2::Zero();
         
         // 应用偏移
-        camera->setPosition(originalPos.x + offsetX, originalPos.y + offsetY);
+        if (camera) {
+            camera->setPosition(originalPos.x + offsetX, originalPos.y + offsetY);
+        }
         
         // 渲染场景
-        incomingScene_->renderScene(renderer);
+        incomingScene_->renderContent(renderer);
         
         // 恢复相机位置
-        camera->setPosition(originalPos);
+        if (camera) {
+            camera->setPosition(originalPos);
+        }
     }
 }
 
@@ -200,42 +234,50 @@ ScaleTransition::ScaleTransition(float duration)
 void ScaleTransition::onRenderTransition(RenderBackend& renderer, float progress) {
     // 源场景：缩小消失
     if (outgoingScene_) {
-        float scale = 1.0f - progress;
+        float scale = std::max(0.01f, 1.0f - progress);
         
         // 保存原始相机状态
         Camera* camera = outgoingScene_->getActiveCamera();
-        float originalZoom = camera->getZoom();
-        Vec2 originalPos = camera->getPosition();
+        float originalZoom = camera ? camera->getZoom() : 1.0f;
+        Vec2 originalPos = camera ? camera->getPosition() : Vec2::Zero();
         
         // 应用缩放（通过调整相机 zoom 实现）
-        camera->setZoom(originalZoom * scale);
+        if (camera) {
+            camera->setZoom(originalZoom * scale);
+        }
         
         // 渲染场景
-        outgoingScene_->renderScene(renderer);
+        outgoingScene_->renderContent(renderer);
         
         // 恢复相机状态
-        camera->setZoom(originalZoom);
-        camera->setPosition(originalPos);
+        if (camera) {
+            camera->setZoom(originalZoom);
+            camera->setPosition(originalPos);
+        }
     }
     
     // 目标场景：放大出现
     if (incomingScene_) {
-        float scale = progress;
+        float scale = std::max(0.01f, progress);
         
         // 保存原始相机状态
         Camera* camera = incomingScene_->getActiveCamera();
-        float originalZoom = camera->getZoom();
-        Vec2 originalPos = camera->getPosition();
+        float originalZoom = camera ? camera->getZoom() : 1.0f;
+        Vec2 originalPos = camera ? camera->getPosition() : Vec2::Zero();
         
         // 应用缩放
-        camera->setZoom(originalZoom * scale);
+        if (camera) {
+            camera->setZoom(originalZoom * scale);
+        }
         
         // 渲染场景
-        incomingScene_->renderScene(renderer);
+        incomingScene_->renderContent(renderer);
         
         // 恢复相机状态
-        camera->setZoom(originalZoom);
-        camera->setPosition(originalPos);
+        if (camera) {
+            camera->setZoom(originalZoom);
+            camera->setPosition(originalPos);
+        }
     }
 }
 
@@ -257,22 +299,28 @@ void FlipTransition::onRenderTransition(RenderBackend& renderer, float progress)
             
             // 保存原始相机状态
             Camera* camera = outgoingScene_->getActiveCamera();
-            float originalRotation = camera->getRotation();
+            float originalRotation = camera ? camera->getRotation() : 0.0f;
             
             // 应用旋转（水平翻转绕Y轴，垂直翻转绕X轴）
             if (axis_ == Axis::Horizontal) {
                 // 水平轴翻转 - 模拟绕X轴旋转
-                camera->setRotation(originalRotation + currentAngle * RAD_TO_DEG);
+                if (camera) {
+                    camera->setRotation(originalRotation + currentAngle * RAD_TO_DEG);
+                }
             } else {
                 // 垂直轴翻转 - 模拟绕Y轴旋转
-                camera->setRotation(originalRotation - currentAngle * RAD_TO_DEG);
+                if (camera) {
+                    camera->setRotation(originalRotation - currentAngle * RAD_TO_DEG);
+                }
             }
             
             // 渲染场景
-            outgoingScene_->renderScene(renderer);
+            outgoingScene_->renderContent(renderer);
             
             // 恢复相机状态
-            camera->setRotation(originalRotation);
+            if (camera) {
+                camera->setRotation(originalRotation);
+            }
         }
     } else {
         // 后半段：翻转目标场景
@@ -281,20 +329,26 @@ void FlipTransition::onRenderTransition(RenderBackend& renderer, float progress)
             
             // 保存原始相机状态
             Camera* camera = incomingScene_->getActiveCamera();
-            float originalRotation = camera->getRotation();
+            float originalRotation = camera ? camera->getRotation() : 0.0f;
             
             // 应用旋转
             if (axis_ == Axis::Horizontal) {
-                camera->setRotation(originalRotation + currentAngle * RAD_TO_DEG);
+                if (camera) {
+                    camera->setRotation(originalRotation + currentAngle * RAD_TO_DEG);
+                }
             } else {
-                camera->setRotation(originalRotation - currentAngle * RAD_TO_DEG);
+                if (camera) {
+                    camera->setRotation(originalRotation - currentAngle * RAD_TO_DEG);
+                }
             }
             
             // 渲染场景
-            incomingScene_->renderScene(renderer);
+            incomingScene_->renderContent(renderer);
             
             // 恢复相机状态
-            camera->setRotation(originalRotation);
+            if (camera) {
+                camera->setRotation(originalRotation);
+            }
         }
     }
 }
@@ -308,19 +362,44 @@ BoxTransition::BoxTransition(float duration, int divisions)
 }
 
 void BoxTransition::onRenderTransition(RenderBackend& renderer, float progress) {
-    // 简化的方块效果
-    // 实际实现可能需要渲染到纹理然后裁剪显示
-    
-    if (progress < 0.5f) {
-        // 源场景逐渐消失
-        if (outgoingScene_) {
-            outgoingScene_->renderScene(renderer);
+    float screenWidth = 800.0f;
+    float screenHeight = 600.0f;
+
+    if (incomingScene_) {
+        Size viewportSize = incomingScene_->getViewportSize();
+        if (viewportSize.width > 0 && viewportSize.height > 0) {
+            screenWidth = viewportSize.width;
+            screenHeight = viewportSize.height;
         }
+    } else if (outgoingScene_) {
+        Size viewportSize = outgoingScene_->getViewportSize();
+        if (viewportSize.width > 0 && viewportSize.height > 0) {
+            screenWidth = viewportSize.width;
+            screenHeight = viewportSize.height;
+        }
+    }
+
+    if (incomingScene_) {
+        incomingScene_->renderContent(renderer);
+    } else if (outgoingScene_) {
+        outgoingScene_->renderContent(renderer);
     } else {
-        // 目标场景逐渐出现
-        if (incomingScene_) {
-            incomingScene_->renderScene(renderer);
-        }
+        return;
+    }
+
+    int div = std::max(1, divisions_);
+    int total = div * div;
+    int visible = std::clamp(static_cast<int>(total * progress), 0, total);
+
+    float cellW = screenWidth / static_cast<float>(div);
+    float cellH = screenHeight / static_cast<float>(div);
+    glm::mat4 overlayVP = glm::ortho(0.0f, screenWidth, screenHeight, 0.0f, -1.0f, 1.0f);
+    renderer.setViewProjection(overlayVP);
+
+    for (int idx = visible; idx < total; ++idx) {
+        int x = idx % div;
+        int y = idx / div;
+        renderer.fillRect(Rect(x * cellW, y * cellH, cellW + 1.0f, cellH + 1.0f), Colors::Black);
     }
 }
 
