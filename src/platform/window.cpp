@@ -52,6 +52,22 @@ bool Window::create(const WindowConfig& config) {
 
     width_ = config.width;
     height_ = config.height;
+
+    // 窗口居中显示
+    if (!config.fullscreen && config.centerWindow) {
+        GLFWmonitor* primaryMonitor = glfwGetPrimaryMonitor();
+        if (primaryMonitor) {
+            const GLFWvidmode* videoMode = glfwGetVideoMode(primaryMonitor);
+            if (videoMode) {
+                int screenWidth = videoMode->width;
+                int screenHeight = videoMode->height;
+                int windowX = (screenWidth - config.width) / 2;
+                int windowY = (screenHeight - config.height) / 2;
+                glfwSetWindowPos(window_, windowX, windowY);
+                E2D_LOG_INFO("Window centered at: {}x{}", windowX, windowY);
+            }
+        }
+    }
     fullscreen_ = config.fullscreen;
     vsync_ = config.vsync;
 

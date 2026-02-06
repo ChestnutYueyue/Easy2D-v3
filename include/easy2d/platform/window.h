@@ -25,6 +25,7 @@ struct WindowConfig {
     bool resizable = true;
     bool vsync = true;
     int msaaSamples = 0;
+    bool centerWindow = true;  // 窗口是否居中显示
 };
 
 // ============================================================================
