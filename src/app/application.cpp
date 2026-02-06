@@ -13,6 +13,8 @@
 #include <easy2d/threading/frame_data.h>
 #include <easy2d/utils/logger.h>
 #include <GLFW/glfw3.h>
+#include <chrono>
+#include <thread>
 
 namespace easy2d {
 
@@ -179,15 +181,6 @@ void Application::mainLoop() {
     double currentTime = glfwGetTime();
     deltaTime_ = static_cast<float>(currentTime - lastFrameTime_);
     lastFrameTime_ = currentTime;
-    
-    // FPS 限制
-    if (config_.fpsLimit > 0) {
-        float targetFrameTime = 1.0f / config_.fpsLimit;
-        while (deltaTime_ < targetFrameTime) {
-            currentTime = glfwGetTime();
-            deltaTime_ = static_cast<float>(currentTime - lastFrameTime_);
-        }
-    }
 
     totalTime_ += deltaTime_;
 
@@ -223,6 +216,16 @@ void Application::mainLoop() {
         // 单线程模式：直接渲染
         render();
     }
+
+    if (!config_.vsync && config_.fpsLimit > 0) {
+        double frameEndTime = glfwGetTime();
+        double frameTime = frameEndTime - currentTime;
+        double target = 1.0 / static_cast<double>(config_.fpsLimit);
+        if (frameTime < target) {
+            auto sleepSeconds = target - frameTime;
+            std::this_thread::sleep_for(std::chrono::duration<double>(sleepSeconds));
+        }
+    }
 }
 
 void Application::update() {
@@ -240,20 +243,13 @@ void Application::update() {
 void Application::render() {
     if (!renderer_) return;
 
-    // 开始帧
-    renderer_->beginFrame(Colors::Black);
-    
-    // 设置视口和相机
+    // 设置视口
     renderer_->setViewport(0, 0, window_->getWidth(), window_->getHeight());
-    renderer_->setViewProjection(camera_->getViewProjectionMatrix());
 
     // 渲染场景
     if (sceneManager_) {
         sceneManager_->render(*renderer_);
     }
-
-    // 结束帧
-    renderer_->endFrame();
     
     // 交换缓冲区
     window_->swapBuffers();
