@@ -128,19 +128,9 @@ target("easy2d")
     end
 target_end()
 
--- ==============================================
--- 2. 测试目标（Catch2）
--- ==============================================
--- target("easy2d_tests")
---     set_kind("binary")
---     add_files("tests/**.cpp")
---     add_deps("easy2d")
---     add_packages("catch2")
---     set_targetdir("$(builddir)/bin")
--- target_end()
 
 -- ==============================================
--- 3. Hello World 示例
+-- 1. Hello World 示例
 -- ==============================================
 target("hello_world")
     set_kind("binary")
@@ -150,7 +140,7 @@ target("hello_world")
 target_end()
 
 -- ==============================================
--- 4. 字体测试示例
+-- 2. 字体测试示例
 -- ==============================================
 target("font_test")
     set_kind("binary")
@@ -159,38 +149,9 @@ target("font_test")
     set_targetdir("$(builddir)/bin")
 target_end()
 
--- ==============================================
--- 6. 碰撞检测验证示例
--- ==============================================
-target("collision_test")
-    set_kind("binary")
-    add_files("examples/collision_test/**.cpp")
-    add_deps("easy2d")
-    set_targetdir("$(builddir)/bin")
-target_end()
 
 -- ==============================================
--- 7. UI 按钮示例
--- ==============================================
-target("ui_button_demo")
-    set_kind("binary")
-    add_files("examples/ui_button_demo/**.cpp")
-    add_deps("easy2d")
-    set_targetdir("$(builddir)/bin")
-target_end()
-
--- ==============================================
--- 8. 转场示例
--- ==============================================
-target("transition_demo")
-    set_kind("binary")
-    add_files("examples/transition_demo/**.cpp")
-    add_deps("easy2d")
-    set_targetdir("$(builddir)/bin")
-target_end()
-
--- ==============================================
--- 9. 推箱子游戏示例
+-- 3. 推箱子游戏示例
 -- ==============================================
 target("push_box")
     set_kind("binary")
