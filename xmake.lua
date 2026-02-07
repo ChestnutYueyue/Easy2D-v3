@@ -199,6 +199,6 @@ target("push_box")
     set_targetdir("$(builddir)/bin")
     -- 复制资源文件到输出目录
     after_build(function (target)
-        os.cp("examples/push_box/src/assets", target:targetdir())
+        os.cp("examples/push_box/src/assets", path.join(target:targetdir(), "/"))
     end)
 target_end()

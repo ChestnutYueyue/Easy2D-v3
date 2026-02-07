@@ -20,6 +20,12 @@ bool Sound::play() {
         return false;
     }
 
+    // 如果声音正在播放，先停止并重置到开头
+    if (ma_sound_is_playing(sound_)) {
+        ma_sound_stop(sound_);
+        ma_sound_seek_to_pcm_frame(sound_, 0);
+    }
+
     ma_result result = ma_sound_start(sound_);
     return result == MA_SUCCESS;
 }

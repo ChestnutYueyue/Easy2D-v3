@@ -107,47 +107,66 @@ void SceneManager::enterScene(Ptr<Scene> scene, Ptr<class Transition> transition
     if (!scene || isTransitioning_) {
         return;
     }
-    
-    if (transition) {
-        transition->start(getCurrentScene(), scene);
-        outgoingScene_ = getCurrentScene();
-        incomingScene_ = scene;
-        activeTransition_ = transition;
-        currentTransition_ = TransitionType::None;
-        isTransitioning_ = true;
-        transitionStackAction_ = [this]() {
-            auto outgoing = outgoingScene_;
-            auto incoming = incomingScene_;
-            if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
-                outgoing->onExit();
-                outgoing->onDetachFromScene();
-                sceneStack_.pop();
-            }
-            if (incoming) {
-                sceneStack_.push(incoming);
-            }
-        };
 
-        if (incomingScene_ && !incomingScene_->isRunning()) {
-            incomingScene_->onEnter();
-            incomingScene_->onAttachToScene(incomingScene_.get());
-        }
-    } else {
+    if (!transition) {
         enterScene(scene);
+        return;
     }
+
+    auto current = getCurrentScene();
+
+    // 在过渡开始前，发送 UIHoverExit 给当前悬停的节点，重置按钮状态
+    if (hoverTarget_) {
+        Event evt;
+        evt.type = EventType::UIHoverExit;
+        evt.data = CustomEvent{0, hoverTarget_};
+        dispatchToNode(hoverTarget_, evt);
+        hoverTarget_ = nullptr;
+    }
+    captureTarget_ = nullptr;
+    hasLastPointerWorld_ = false;
+
+    transition->start(current, scene);
+    outgoingScene_ = current;
+    incomingScene_ = scene;
+    activeTransition_ = transition;
+    currentTransition_ = TransitionType::None;
+    isTransitioning_ = true;
+    transitionStackAction_ = [this]() {
+        // 退出旧场景
+        auto outgoing = outgoingScene_;
+        if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
+            outgoing->onExit();
+            outgoing->onDetachFromScene();
+            sceneStack_.pop();
+        }
+        // 推入新场景并调用 onEnter
+        auto incoming = incomingScene_;
+        if (incoming) {
+            sceneStack_.push(incoming);
+            if (!incoming->isRunning()) {
+                incoming->onEnter();
+                incoming->onAttachToScene(incoming.get());
+            }
+        }
+    };
+    // 注意：不在此处调用新场景的 onEnter，由 transitionStackAction_ 在过渡完成后调用
 }
 
 void SceneManager::replaceScene(Ptr<Scene> scene, TransitionType transition, float duration) {
     if (!scene || isTransitioning_) {
         return;
     }
-    
+
     if (sceneStack_.empty()) {
         runWithScene(scene);
         return;
     }
-    
-    startTransition(sceneStack_.top(), scene, transition, duration, [this]() {
+
+    auto oldScene = sceneStack_.top();
+
+    startTransition(oldScene, scene, transition, duration, [this]() {
+        // 过渡完成后，退出旧场景并从堆栈中移除
         auto outgoing = outgoingScene_;
         auto incoming = incomingScene_;
         if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
@@ -155,8 +174,13 @@ void SceneManager::replaceScene(Ptr<Scene> scene, TransitionType transition, flo
             outgoing->onDetachFromScene();
             sceneStack_.pop();
         }
+        // 将新场景推入堆栈并调用 onEnter
         if (incoming) {
             sceneStack_.push(incoming);
+            if (!incoming->isRunning()) {
+                incoming->onEnter();
+                incoming->onAttachToScene(incoming.get());
+            }
         }
     });
 }
@@ -181,19 +205,25 @@ void SceneManager::pushScene(Ptr<Scene> scene, TransitionType transition, float 
     if (!scene || isTransitioning_) {
         return;
     }
-    
+
     if (sceneStack_.empty()) {
         runWithScene(scene);
         return;
     }
-    
-    if (!sceneStack_.empty()) {
-        sceneStack_.top()->pause();
-    }
 
-    startTransition(sceneStack_.top(), scene, transition, duration, [this]() {
+    // 暂停当前场景
+    sceneStack_.top()->pause();
+
+    auto currentScene = sceneStack_.top();
+
+    startTransition(currentScene, scene, transition, duration, [this]() {
+        // 过渡完成后，将新场景推入堆栈并调用 onEnter
         if (incomingScene_) {
             sceneStack_.push(incomingScene_);
+            if (!incomingScene_->isRunning()) {
+                incomingScene_->onEnter();
+                incomingScene_->onAttachToScene(incomingScene_.get());
+            }
         }
     });
 }
@@ -218,18 +248,25 @@ void SceneManager::popScene(TransitionType transition, float duration) {
     if (sceneStack_.size() <= 1 || isTransitioning_) {
         return;
     }
-    
+
     auto current = sceneStack_.top();
     auto previous = getPreviousScene();
+
     startTransition(current, previous, transition, duration, [this]() {
+        // 过渡完成后，退出当前场景并从堆栈中移除
         auto outgoing = outgoingScene_;
-        auto incoming = incomingScene_;
         if (!sceneStack_.empty() && outgoing && sceneStack_.top() == outgoing) {
             outgoing->onExit();
             outgoing->onDetachFromScene();
             sceneStack_.pop();
         }
+        // 恢复前一个场景
+        auto incoming = incomingScene_;
         if (!sceneStack_.empty() && incoming && sceneStack_.top() == incoming) {
+            if (!incoming->isRunning()) {
+                incoming->onEnter();
+                incoming->onAttachToScene(incoming.get());
+            }
             incoming->resume();
         }
     });
@@ -256,17 +293,25 @@ void SceneManager::popToRootScene(TransitionType transition, float duration) {
     if (sceneStack_.size() <= 1 || isTransitioning_) {
         return;
     }
-    
+
     auto root = getRootScene();
-    startTransition(sceneStack_.top(), root, transition, duration, [this, root]() {
+    auto current = sceneStack_.top();
+
+    startTransition(current, root, transition, duration, [this, root]() {
+        // 退出所有场景直到根场景
         while (!sceneStack_.empty() && sceneStack_.top() != root) {
             auto scene = sceneStack_.top();
             scene->onExit();
             scene->onDetachFromScene();
             sceneStack_.pop();
         }
-        if (!sceneStack_.empty()) {
-            sceneStack_.top()->resume();
+        // 恢复根场景
+        if (!sceneStack_.empty() && sceneStack_.top() == root) {
+            if (!root->isRunning()) {
+                root->onEnter();
+                root->onAttachToScene(root.get());
+            }
+            root->resume();
         }
     });
 }
@@ -300,18 +345,26 @@ void SceneManager::popToScene(const std::string& name, TransitionType transition
     if (isTransitioning_) {
         return;
     }
-    
+
     auto target = getSceneByName(name);
     if (target && target != sceneStack_.top()) {
-        startTransition(sceneStack_.top(), target, transition, duration, [this, target]() {
+        auto current = sceneStack_.top();
+
+        startTransition(current, target, transition, duration, [this, target]() {
+            // 退出所有场景直到目标场景
             while (!sceneStack_.empty() && sceneStack_.top() != target) {
                 auto scene = sceneStack_.top();
                 scene->onExit();
                 scene->onDetachFromScene();
                 sceneStack_.pop();
             }
-            if (!sceneStack_.empty()) {
-                sceneStack_.top()->resume();
+            // 恢复目标场景
+            if (!sceneStack_.empty() && sceneStack_.top() == target) {
+                if (!target->isRunning()) {
+                    target->onEnter();
+                    target->onAttachToScene(target.get());
+                }
+                target->resume();
             }
         });
     }
@@ -472,6 +525,17 @@ void SceneManager::startTransition(Ptr<Scene> from, Ptr<Scene> to, TransitionTyp
 
     transition->start(from, to);
 
+    // 在过渡开始前，发送 UIHoverExit 给当前悬停的节点，重置按钮状态
+    if (hoverTarget_) {
+        Event evt;
+        evt.type = EventType::UIHoverExit;
+        evt.data = CustomEvent{0, hoverTarget_};
+        dispatchToNode(hoverTarget_, evt);
+        hoverTarget_ = nullptr;
+    }
+    captureTarget_ = nullptr;
+    hasLastPointerWorld_ = false;
+
     isTransitioning_ = true;
     currentTransition_ = type;
     transitionDuration_ = duration;
@@ -481,10 +545,7 @@ void SceneManager::startTransition(Ptr<Scene> from, Ptr<Scene> to, TransitionTyp
     activeTransition_ = transition;
     transitionStackAction_ = std::move(stackAction);
 
-    if (incomingScene_ && !incomingScene_->isRunning()) {
-        incomingScene_->onEnter();
-        incomingScene_->onAttachToScene(incomingScene_.get());
-    }
+    // 注意：不在此处调用新场景的 onEnter，由 transitionStackAction_ 在过渡完成后调用
 }
 
 void SceneManager::updateTransition(float dt) {
@@ -501,6 +562,9 @@ void SceneManager::updateTransition(float dt) {
 }
 
 void SceneManager::finishTransition() {
+    // 先保存当前悬停的节点，然后在 transitionStackAction_ 之后发送 UIHoverExit
+    Node* lastHoverTarget = hoverTarget_;
+
     isTransitioning_ = false;
     hoverTarget_ = nullptr;
     captureTarget_ = nullptr;
@@ -508,6 +572,14 @@ void SceneManager::finishTransition() {
 
     if (transitionStackAction_) {
         transitionStackAction_();
+    }
+
+    // 在 transitionStackAction_ 之后发送 UIHoverExit，确保旧场景仍然有效
+    if (lastHoverTarget) {
+        Event evt;
+        evt.type = EventType::UIHoverExit;
+        evt.data = CustomEvent{0, lastHoverTarget};
+        dispatchToNode(lastHoverTarget, evt);
     }
 
     outgoingScene_.reset();
