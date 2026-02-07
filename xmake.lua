@@ -30,19 +30,19 @@ target("easy2d")
     add_files(path.join(SRC_DIR, "**.cpp"))
 
     -- GLEW 源文件
-    add_files(path.join(THIRD_PARTY, "glew/src/glew.c"))
+    add_files(path.join(INC_DIR, "glew/src/glew.c"))
 
     -- GLFW 通用源文件
-    add_files(path.join(THIRD_PARTY, "glfw/src/common/*.c"))
+    add_files(path.join(INC_DIR, "glfw/src/common/*.c"))
 
     -- 公开头文件目录
     add_includedirs(INC_DIR, {public = true})
 
     -- 第三方头文件目录
-    add_includedirs(path.join(THIRD_PARTY, "glew/include"), {public = true})
-    add_includedirs(path.join(THIRD_PARTY, "glfw/include"), {public = true})
-    add_includedirs(THIRD_PARTY, {public = true})  -- glm, stb, spdlog, etc.
-    add_includedirs(path.join(THIRD_PARTY, "simpleini"), {public = true})
+    add_includedirs(path.join(INC_DIR, "glew/include"), {public = true})
+    add_includedirs(path.join(INC_DIR, "glfw/include"), {public = true})
+    add_includedirs(INC_DIR, {public = true})  -- glm, stb, spdlog, etc.
+    add_includedirs(path.join(INC_DIR, "simpleini"), {public = true})
 
     -- 全平台宏定义
     add_defines("GLEW_STATIC")
@@ -52,9 +52,9 @@ target("easy2d")
     -- ==============================================
     if is_plat("windows") or is_plat("mingw") then
         -- GLFW Windows 源文件
-        add_files(path.join(THIRD_PARTY, "glfw/src/windows/*.c"))
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/common"), {public = false})
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/windows"), {public = false})
+        add_files(path.join(INC_DIR, "glfw/src/windows/*.c"))
+        add_includedirs(path.join(INC_DIR, "glfw/src/common"), {public = false})
+        add_includedirs(path.join(INC_DIR, "glfw/src/windows"), {public = false})
         add_defines("_GLFW_WIN32")
         add_defines("WIN32_LEAN_AND_MEAN", "NOMINMAX")
 
@@ -65,21 +65,21 @@ target("easy2d")
 
     if is_plat("linux") then
         -- GLFW Linux 源文件（X11 后端）
-        add_files(path.join(THIRD_PARTY, "glfw/src/linux/linux_x11/*.c"))
-        add_files(path.join(THIRD_PARTY, "glfw/src/linux/*.c"))
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/common"), {public = false})
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/linux/linux_x11"), {public = false})
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/linux"), {public = false})
+        add_files(path.join(INC_DIR, "glfw/src/linux/linux_x11/*.c"))
+        add_files(path.join(INC_DIR, "glfw/src/linux/*.c"))
+        add_includedirs(path.join(INC_DIR, "glfw/src/common"), {public = false})
+        add_includedirs(path.join(INC_DIR, "glfw/src/linux/linux_x11"), {public = false})
+        add_includedirs(path.join(INC_DIR, "glfw/src/linux"), {public = false})
         add_defines("_GLFW_X11")
         add_syslinks("GL", "X11", "pthread", "dl", {public = true})
     end
 
     if is_plat("macosx") then
         -- GLFW macOS 源文件
-        add_files(path.join(THIRD_PARTY, "glfw/src/macos/*.c"))
-        add_files(path.join(THIRD_PARTY, "glfw/src/macos/*.m"))
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/common"), {public = false})
-        add_includedirs(path.join(THIRD_PARTY, "glfw/src/macos"), {public = false})
+        add_files(path.join(INC_DIR, "glfw/src/macos/*.c"))
+        add_files(path.join(INC_DIR, "glfw/src/macos/*.m"))
+        add_includedirs(path.join(INC_DIR, "glfw/src/common"), {public = false})
+        add_includedirs(path.join(INC_DIR, "glfw/src/macos"), {public = false})
         add_defines("_GLFW_COCOA")
         add_frameworks("Cocoa", "IOKit", "CoreFoundation", "CoreVideo", "OpenGL", {public = true})
     end
